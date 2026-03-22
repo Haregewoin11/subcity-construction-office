@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 280" width="520" height="280">
+  <!-- Background -->
+  <rect width="520" height="280" fill="#EBEBEB" rx="8"/>
+
+  <!-- ── ICON GROUP (centered at 260, top area) ── -->
+  <g transform="translate(260, 130)">
+
+    <!-- Left roof line -->
+    <polygon points="-130,20 0,-80 0,20" fill="#1B3A6B"/>
+    <!-- Right roof line -->
+    <polygon points="0,-80 130,20 0,20" fill="#1B3A6B"/>
+
+    <!-- House window (4-pane) on left side of roof -->
+    <rect x="-28" y="-22" width="22" height="22" fill="#EBEBEB" rx="1"/>
+    <!-- Window panes -->
+    <line x1="-17" y1="-22" x2="-17" y2="0" stroke="#1B3A6B" stroke-width="2"/>
+    <line x1="-28" y1="-11" x2="-6" y2="-11" stroke="#1B3A6B" stroke-width="2"/>
+
+    <!-- Ground / base line -->
+    <rect x="-130" y="20" width="260" height="8" fill="#1B3A6B" rx="2"/>
+
+    <!-- Chimney left -->
+    <rect x="-22" y="-88" width="12" height="30" fill="#9AAFC0"/>
+    <!-- Chimney right -->
+    <rect x="-6" y="-92" width="12" height="34" fill="#9AAFC0"/>
+
+    <!-- ── CITY BUILDINGS (right side, behind roof) ── -->
+    <!-- Building 1 (tallest, navy) -->
+    <rect x="52" y="-70" width="28" height="90" fill="#1B3A6B"/>
+    <!-- Building 2 (medium, gray) -->
+    <rect x="84" y="-45" width="22" height="65" fill="#9AAFC0"/>
+    <!-- Building 3 (shorter, gray) -->
+    <rect x="110" y="-28" width="18" height="48" fill="#B8C8D4"/>
+
+    <!-- Building windows - B1 -->
+    <rect x="57" y="-62" width="7" height="7" fill="#9AAFC0" rx="0.5"/>
+    <rect x="68" y="-62" width="7" height="7" fill="#9AAFC0" rx="0.5"/>
+    <rect x="57" y="-50" width="7" height="7" fill="#9AAFC0" rx="0.5"/>
+    <rect x="68" y="-50" width="7" height="7" fill="#9AAFC0" rx="0.5"/>
+    <rect x="57" y="-38" width="7" height="7" fill="#9AAFC0" rx="0.5"/>
+    <rect x="68" y="-38" width="7" height="7" fill="#9AAFC0" rx="0.5"/>
+
+    <!-- Building windows - B2 -->
+    <rect x="89" y="-37" width="6" height="6" fill="#E8EFF4" rx="0.5"/>
+    <rect x="99" y="-37" width="6" height="6" fill="#E8EFF4" rx="0.5"/>
+    <rect x="89" y="-26" width="6" height="6" fill="#E8EFF4" rx="0.5"/>
+    <rect x="99" y="-26" width="6" height="6" fill="#E8EFF4" rx="0.5"/>
+
+    <!-- Sun (yellow-orange, top right of buildings) -->
+    <circle cx="105" cy="-76" r="18" fill="#F5B32A"/>
+    <!-- Sun rays (partial, behind building) -->
+    <line x1="105" y1="-98" x2="105" y2="-94" stroke="#F5B32A" stroke-width="3" stroke-linecap="round"/>
+    <line x1="122" y1="-91" x2="119" y2="-88" stroke="#F5B32A" stroke-width="3" stroke-linecap="round"/>
+    <line x1="88"  y1="-91" x2="91"  y2="-88" stroke="#F5B32A" stroke-width="3" stroke-linecap="round"/>
+    <line x1="127" y1="-76" x2="123" y2="-76" stroke="#F5B32A" stroke-width="3" stroke-linecap="round"/>
+    <line x1="83"  y1="-76" x2="87"  y2="-76" stroke="#F5B32A" stroke-width="3" stroke-linecap="round"/>
+    <!-- Sun core highlight -->
+    <circle cx="105" cy="-76" r="11" fill="#FCCF3A"/>
+
+    <!-- Clip buildings over base line to align -->
+  </g>
+
+  <!-- ── TEXT ── -->
+  <text
+    x="260"
+    y="208"
+    text-anchor="middle"
+    font-family="'Arial', 'Helvetica Neue', sans-serif"
+    font-size="19"
+    font-weight="700"
+    letter-spacing="2.5"
+    fill="#1B3A6B"
+  >LEMIKURA SUB-CITY CONSTRUCTION OFFICE</text>
+</svg>

@@ -1,0 +1,59 @@
+/* Lemi Kura Sub-City Brand Identity */
+:root {
+  --gov-blue: #0B3C5D;
+  --dev-green: #2E8B57;
+  --const-orange: #F4A261;
+  --bg-soft-gray: #F4F6F9;
+  --text-primary: #2C2C2C;
+  --text-secondary: #6C757D;
+}
+
+/* Table Header Styling */
+.gov-table-header {
+  background-color: var(--bg-soft-gray) !important;
+  color: var(--gov-blue) !important;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+/* Custom Action Buttons */
+.btn-action-view {
+  color: var(--text-secondary);
+  transition: all 0.2s ease;
+}
+.btn-action-view:hover {
+  color: var(--gov-blue);
+  background-color: rgba(11, 60, 93, 0.08);
+}
+
+.btn-action-edit {
+  color: var(--text-secondary);
+  transition: all 0.2s ease;
+}
+.btn-action-edit:hover {
+  color: var(--const-orange);
+  background-color: rgba(244, 162, 97, 0.08);
+}
+
+/* Status Badges */
+.badge-completed {
+  background-color: rgba(46, 139, 87, 0.1);
+  color: var(--dev-green);
+  border: 1px solid rgba(46, 139, 87, 0.2);
+}
+
+.badge-ongoing {
+  background-color: rgba(11, 60, 93, 0.1);
+  color: var(--gov-blue);
+  border: 1px solid rgba(11, 60, 93, 0.2);
+}
+
+/* Blueprint Grid Background */
+.blueprint-grid {
+  background-image: 
+    linear-gradient(var(--gov-blue) 0.5px, transparent 0.5px), 
+    linear-gradient(90deg, var(--gov-blue) 0.5px, transparent 0.5px);
+  background-size: 30px 30px;
+  opacity: 0.04;
+}

@@ -1,26 +1,139 @@
 @import "tailwindcss";
 
+@theme {
+  /* ===============================
+     CORE GOVERNMENT COLOR PALETTE
+     =============================== */
+
+  /* Primary Government Blue (Navbar / Headings) */
+  --color-gov-blue: #0B3C5D;
+
+  /* Secondary Blue (Sidebar / Hover states) */
+  --color-gov-blue-light: #1E4E79;
+
+  /* Development Green (Success / Active / Progress) */
+  --color-dev-green: #2E8B57;
+
+  /* Construction Orange (Alerts / Highlights / CTA) */
+  --color-const-orange: #F4A261;
+
+  /* Soft Background (Main Layout Background) */
+  --color-soft-bg: #F4F6F9;
+
+  /* Card / Surface */
+  --color-surface: #FFFFFF;
+
+  /* Text Colors */
+  --color-text-primary: #2C2C2C;
+  --color-text-secondary: #6C757D;
+
+  /* Border Color */
+  --color-border: #E2E8F0;
+
+  /* ===============================
+     TYPOGRAPHY
+     =============================== */
+  --font-sans: 'Inter', 'Roboto', sans-serif;
+  --font-amharic: var(--font-ethiopic);
+}
+
+/* ===============================
+   GLOBAL SYSTEM VARIABLES
+   =============================== */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: var(--color-soft-bg);
+  --foreground: var(--color-text-primary);
+
+  /* Layout Areas */
+  --navbar-bg: var(--color-gov-blue);
+  --sidebar-bg: var(--color-gov-blue-light);
+  --sidebar-active: var(--color-dev-green);
+
+  /* Buttons */
+  --btn-primary: var(--color-dev-green);
+  --btn-secondary: var(--color-gov-blue);
+  --btn-accent: var(--color-const-orange);
+
+  /* Cards */
+  --card-bg: var(--color-surface);
+  --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+/* ===============================
+   BLUEPRINT GRID BACKGROUND
+   =============================== */
+
+.blueprint-bg {
+  background-color: var(--color-soft-bg);
+  background-image:
+    linear-gradient(rgba(11, 60, 93, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(11, 60, 93, 0.04) 1px, transparent 1px);
+  background-size: 20px 20px;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
+/* ===============================
+   TYPOGRAPHY LANGUAGE SUPPORT
+   =============================== */
 
 body {
-  background: var(--background);
+  font-family: var(--font-sans);
+  background-color: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+}
+
+[lang="am"] {
+  font-family: var(--font-amharic), sans-serif;
+  line-height: 1.6;
+}
+
+/* ===============================
+   COMPONENT UTILITY EXAMPLES
+   =============================== */
+
+/* Navbar */
+.navbar {
+  background-color: var(--navbar-bg);
+  color: white;
+}
+
+/* Sidebar */
+.sidebar {
+  background-color: var(--sidebar-bg);
+  color: white;
+}
+
+.sidebar .active {
+  background-color: var(--sidebar-active);
+  color: white;
+}
+
+/* Cards */
+.card {
+  background-color: var(--card-bg);
+  box-shadow: var(--card-shadow);
+  border-radius: 0.75rem;
+}
+
+/* Buttons */
+.btn-primary {
+  background-color: var(--btn-primary);
+  color: white;
+}
+
+.btn-secondary {
+  background-color: var(--btn-secondary);
+  color: white;
+}
+
+.btn-accent {
+  background-color: var(--btn-accent);
+  color: white;
+}
+
+@layer components {
+  .form-input-gov {
+    @apply w-full p-3 rounded-lg border border-slate-200 bg-slate-50 outline-none focus:ring-2 focus:ring-gov-blue focus:bg-white transition-all text-sm;
+  }
+
 }
