@@ -172,11 +172,11 @@ export default function DesignSupervisionHub() {
       <div className="max-w-[1600px] mx-auto space-y-12">
 
         {/* HEADER */}
-        <header className="space-y-4">
+        <header className="space-y-2">
           {/* <div className="flex items-center gap-3 text-slate-400 uppercase font-black text-xs tracking-[0.3em]">
             <Activity size={16} /> {t("ledger_label")}
           </div> */}
-          <h1 className="text-3xl md:text-4xl font-black text-slate-900 tracking-tighter italic uppercase">
+          <h1 className="text-3xl font-black uppercase tracking-tight text-[#2C2C2C]">
             {t("title")}
           </h1>
           <p className="text-lg font-medium text-slate-500 max-w-2xl">
@@ -185,7 +185,7 @@ export default function DesignSupervisionHub() {
         </header>
 
         {/* WORKFLOW PIPELINE */}
-        <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm p-6">
+        {/* <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm p-6">
           <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4">
             {t("pipeline_label")}
           </p>
@@ -201,7 +201,7 @@ export default function DesignSupervisionHub() {
               </React.Fragment>
             ))}
           </div>
-        </div>
+        </div> */}
 
         {/* STAT CARDS */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">

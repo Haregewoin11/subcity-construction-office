@@ -1,23 +1,36 @@
 "use client";
 // src/app/[locale]/admin/tenders/awards/page.tsx
 
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useTranslations, useLocale } from "next-intl";
-import { createClient } from "@/lib/actions/supabase/clients";
+import { useAuth } from "@/context/Authcontext";
 import {
   ArrowLeft, FileSignature, Trophy, Loader2,
   CheckCircle2, AlertCircle, ExternalLink, Calendar, ArrowRight, Layers,
 } from "lucide-react";
 import Link from "next/link";
 
+// ── Types ──────────────────────────────────────────────────────────────────
+type ProjectInfo = { id: string; name: string; location: string; status: string };
+
 type AwardedTender = {
-  tender_id: string; ref_no: string; title: string; status: string;
-  budget_estimate: number; currency: string; project_id: string | null;
-  projects?: { id: string; name: string; location: string; status: string } | null;
-  winning_submission?: {
+  tender_id:         string;
+  ref_no:            string;
+  title:             string;
+  status:            string;
+  budget_estimate:   number;
+  currency:          string;
+  project_id:        string | null;
+  projects:          ProjectInfo[] | null;
+  winning_submission: {
     id: string; company_name: string; contact_email: string;
     financial_offer: number; currency: string; submission_ref: string;
   } | null;
+};
+
+// Raw row from Supabase — projects comes back as array (one-to-one FK join)
+type RawTender = Omit<AwardedTender, "winning_submission"> & {
+  winning_submission?: AwardedTender["winning_submission"];
 };
 
 type Contract = {
@@ -25,66 +38,101 @@ type Contract = {
   start_date: string; end_date: string; signed_contract_url: string; payment_status: string;
 };
 
-function emptyForm() {
+type FormEntry = { start_date: string; end_date: string; signed_contract_url: string; uploading: boolean };
+
+function emptyForm(): FormEntry {
   return { start_date: "", end_date: "", signed_contract_url: "", uploading: false };
 }
 
+// ── Page ───────────────────────────────────────────────────────────────────
 export default function AwardsPage() {
-  const t        = useTranslations("Admin.tenders_module");
-  const locale   = useLocale();
-  const supabase = useRef(createClient()).current;
+  const t              = useTranslations("Admin.tenders_module");
+  const locale         = useLocale();
+  const { supabase }   = useAuth();
 
   const [awardedTenders, setAwardedTenders] = useState<AwardedTender[]>([]);
   const [contracts,      setContracts]      = useState<Contract[]>([]);
   const [loading,        setLoading]        = useState(true);
   const [processing,     setProcessing]     = useState<string | null>(null);
   const [toast,          setToast]          = useState<{ msg: string; type: "success" | "error" } | null>(null);
-  const [contractForm,   setContractForm]   = useState<Record<string, ReturnType<typeof emptyForm>>>({});
+  const [contractForm,   setContractForm]   = useState<Record<string, FormEntry>>({});
 
-  async function load() {
-    setLoading(true);
-    const { data: tData } = await supabase
-      .from("tenders")
-      .select(`tender_id,ref_no,title,status,budget_estimate,currency,project_id,
-        projects!tenders_project_id_fkey(id,name,location,status)`)
-      .in("status", ["Awarded", "Contract Signed"])
-      .order("updated_at", { ascending: false });
-
-    const tenders = (tData as AwardedTender[]) || [];
-    const tids    = tenders.map(t => t.tender_id);
-
-    // fetch winning bid_submission for each tender
-    const winMap: Record<string, AwardedTender["winning_submission"]> = {};
-    if (tids.length > 0) {
-      const { data: wData } = await supabase
-        .from("bid_submissions")
-        .select("id,tender_id,company_name,contact_email,financial_offer,currency,submission_ref")
-        .in("tender_id", tids)
-        .eq("is_winner", true);
-      for (const w of wData ?? []) winMap[w.tender_id] = w as AwardedTender["winning_submission"];
-    }
-
-    setAwardedTenders(tenders.map(t => ({ ...t, winning_submission: winMap[t.tender_id] ?? null })));
-
-    const { data: cData } = await supabase
-      .from("contracts")
-      .select("id,tender_id,contract_ref,signed_amount,start_date,end_date,signed_contract_url,payment_status")
-      .order("created_at", { ascending: false });
-    setContracts((cData as Contract[]) || []);
-    setLoading(false);
-  }
-
-  useEffect(() => { load(); }, []);
+  // ── tick: incremented by refresh() to re-run the useEffect ───────────────
+  const [tick, setTick] = useState(0);
+  const refresh = useCallback(() => setTick(t => t + 1), []);
 
   function showToast(msg: string, type: "success" | "error") {
-    setToast({ msg, type }); setTimeout(() => setToast(null), 5000);
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 5000);
   }
 
-  function patchForm(tid: string, patch: Partial<ReturnType<typeof emptyForm>>) {
+  // ── Data fetch — inlined so ESLint can see all setState calls ─────────────
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchData = async () => {
+      setLoading(true);
+
+      // 1. Fetch awarded / contract-signed tenders
+      const { data: tData } = await supabase
+        .from("tenders")
+        .select(`
+          tender_id, ref_no, title, status, budget_estimate, currency, project_id,
+          projects!tenders_project_id_fkey(id, name, location, status)
+        `)
+        .in("status", ["Awarded", "Contract Signed"])
+        .order("updated_at", { ascending: false });
+
+      if (cancelled) return;
+
+      const rawTenders = (Array.isArray(tData) ? tData : []) as unknown as RawTender[];
+      const tids = rawTenders.map(t => t.tender_id);
+
+      // 2. Fetch winning bid submissions for each tender
+      const winMap: Record<string, AwardedTender["winning_submission"]> = {};
+      if (tids.length > 0) {
+        const { data: wData } = await supabase
+          .from("bid_submissions")
+          .select("id, tender_id, company_name, contact_email, financial_offer, currency, submission_ref")
+          .in("tender_id", tids)
+          .eq("is_winner", true);
+
+        for (const w of (Array.isArray(wData) ? wData : []) as unknown as (AwardedTender["winning_submission"] & { tender_id: string })[]) {
+          if (w) winMap[w.tender_id] = w;
+        }
+      }
+
+      if (!cancelled) {
+        setAwardedTenders(
+          rawTenders.map(t => ({
+            ...t,
+            winning_submission: winMap[t.tender_id] ?? null,
+          }))
+        );
+      }
+
+      // 3. Fetch existing contracts
+      const { data: cData } = await supabase
+        .from("contracts")
+        .select("id, tender_id, contract_ref, signed_amount, start_date, end_date, signed_contract_url, payment_status")
+        .order("created_at", { ascending: false });
+
+      if (!cancelled) {
+        setContracts((Array.isArray(cData) ? cData : []) as unknown as Contract[]);
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+    return () => { cancelled = true; };
+  }, [supabase, tick]);
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+  function patchForm(tid: string, patch: Partial<FormEntry>) {
     setContractForm(f => ({ ...f, [tid]: { ...(f[tid] ?? emptyForm()), ...patch } }));
   }
 
-  // Upload contract PDF to the public "procurement" bucket
+  // ── Upload contract PDF ───────────────────────────────────────────────────
   async function handleFileUpload(tenderId: string, file: File) {
     patchForm(tenderId, { uploading: true });
     const path = `contracts/${tenderId}/${Date.now()}-${file.name.replace(/\s+/g, "_")}`;
@@ -99,15 +147,15 @@ export default function AwardsPage() {
     showToast(t("toast_upload_success"), "success");
   }
 
-  // Save contract → flip tender to Contract Signed → advance project to Design Phase → seed design_submissions
+  // ── Save contract + cascade updates ──────────────────────────────────────
   async function handleCreateContract(tender: AwardedTender) {
     const form = contractForm[tender.tender_id] ?? emptyForm();
     if (!form.signed_contract_url) { showToast(t("toast_no_file"),  "error"); return; }
     if (!form.start_date || !form.end_date) { showToast(t("toast_no_dates"), "error"); return; }
     setProcessing(tender.tender_id);
 
-    const contract_ref = `CTR-${tender.ref_no}`;
-    const signedAmount = tender.winning_submission?.financial_offer ?? tender.budget_estimate;
+    const contract_ref  = `CTR-${tender.ref_no}`;
+    const signedAmount  = tender.winning_submission?.financial_offer ?? tender.budget_estimate;
 
     // 1. Insert contract (upsert on duplicate ref)
     const { error: cErr } = await supabase.from("contracts").insert({
@@ -115,10 +163,18 @@ export default function AwardsPage() {
       signed_amount: signedAmount, start_date: form.start_date, end_date: form.end_date,
       signed_contract_url: form.signed_contract_url, payment_status: "Pending",
     });
-    if (cErr && cErr.code !== "23505") { showToast(cErr.message, "error"); setProcessing(null); return; }
+    if (cErr && cErr.code !== "23505") {
+      showToast(cErr.message, "error");
+      setProcessing(null);
+      return;
+    }
     if (cErr?.code === "23505") {
       await supabase.from("contracts")
-        .update({ signed_contract_url: form.signed_contract_url, start_date: form.start_date, end_date: form.end_date })
+        .update({
+          signed_contract_url: form.signed_contract_url,
+          start_date:          form.start_date,
+          end_date:            form.end_date,
+        })
         .eq("tender_id", tender.tender_id);
     }
 
@@ -127,17 +183,21 @@ export default function AwardsPage() {
       .update({ status: "Contract Signed", updated_at: new Date().toISOString() })
       .eq("tender_id", tender.tender_id);
 
-    // 3. Project → Design Phase (only if still at Planned / Awarded stage)
+    // 3. Project → Design Phase (only if still Planned / Awarded)
     if (tender.project_id) {
       await supabase.from("projects")
         .update({ status: "Design Phase", updated_at: new Date().toISOString() })
         .eq("id", tender.project_id)
         .in("status", ["Planned", "Awarded"]);
 
-      // 4. Seed an initial Pending design_submission so Design Review shows it immediately
+      // 4. Seed initial design_submission so Design Review shows it immediately
       const dsTitle = `Initial Design — ${tender.title}`;
-      const { data: existing } = await supabase.from("design_submissions")
-        .select("id").eq("project_id", tender.project_id).eq("title", dsTitle).maybeSingle();
+      const { data: existing } = await supabase
+        .from("design_submissions")
+        .select("id")
+        .eq("project_id", tender.project_id)
+        .eq("title", dsTitle)
+        .maybeSingle();
       if (!existing) {
         await supabase.from("design_submissions").insert({
           project_id:     tender.project_id,
@@ -151,12 +211,13 @@ export default function AwardsPage() {
     }
 
     showToast(t("toast_contract_saved"), "success");
-    load();
+    refresh(); // re-run the useEffect to reload all data
     setProcessing(null);
   }
 
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-[#F4F6F9] p-8">
+    <div className="min-h-screen bg-\[\#F4F6F9\] p-8">
       <div className="max-w-4xl mx-auto">
 
         {/* Header */}
@@ -166,7 +227,7 @@ export default function AwardsPage() {
             <ArrowLeft size={18} />
           </Link>
           <div>
-            <h1 className="text-3xl font-black uppercase tracking-tight text-[#2C2C2C]">{t("awards_title")}</h1>
+            <h1 className="text-3xl font-black uppercase tracking-tight text-[\#2C2C2C\]">{t("awards_title")}</h1>
             <p className="text-sm font-bold text-slate-500">{t("awards_subtitle")}</p>
           </div>
         </div>
@@ -193,7 +254,7 @@ export default function AwardsPage() {
         ) : (
           <div className="space-y-6">
             {awardedTenders.length === 0 ? (
-              <div className="bg-white rounded-[2rem] border border-slate-200 p-12 text-center">
+              <div className="bg-white rounded-\[2rem\] border border-slate-200 p-12 text-center">
                 <Trophy size={40} className="text-slate-300 mx-auto mb-3" strokeWidth={1} />
                 <p className="font-black text-slate-400">{t("no_awarded")}</p>
                 <p className="text-sm text-slate-400 mt-1">{t("no_awarded_body")}</p>
@@ -203,11 +264,13 @@ export default function AwardsPage() {
               const isContractSigned = tender.status === "Contract Signed";
               const existingContract = contracts.find(c => c.tender_id === tender.tender_id);
               const winner           = tender.winning_submission;
-              const proj             = tender.projects;
+              const proj             = tender.projects && tender.projects.length > 0
+                ? tender.projects[0]
+                : null;
 
               return (
                 <div key={tender.tender_id}
-                  className={`bg-white rounded-[2rem] border shadow-sm overflow-hidden ${
+                  className={`bg-white rounded-\[2rem\] border shadow-sm overflow-hidden ${
                     isContractSigned ? "border-green-300" : "border-slate-200"
                   }`}>
 
@@ -221,7 +284,7 @@ export default function AwardsPage() {
                             isContractSigned ? "bg-green-100 text-green-700" : "bg-blue-100 text-blue-700"
                           }`}>{tender.status}</span>
                         </div>
-                        <h3 className="font-black text-[#2C2C2C] text-lg">{tender.title}</h3>
+                        <h3 className="font-black text-\[\#2C2C2C\] text-lg">{tender.title}</h3>
                         {proj ? (
                           <div className="mt-1.5 flex items-center gap-2 flex-wrap">
                             <span className="text-xs text-slate-400">Project:</span>
@@ -235,7 +298,7 @@ export default function AwardsPage() {
                           </div>
                         ) : (
                           <p className="mt-1 text-[11px] text-amber-600 font-bold flex items-center gap-1">
-                            <AlertCircle size={11} /> No linked project — design phase won't auto-activate
+                            <AlertCircle size={11} /> No linked project — design phase won&#39;t auto-activate
                           </p>
                         )}
                       </div>
@@ -269,9 +332,18 @@ export default function AwardsPage() {
                       <div className="space-y-3">
                         <p className="text-[10px] font-black uppercase text-slate-400">{t("contract_details")}</p>
                         <div className="grid grid-cols-3 gap-3 text-sm">
-                          <div><p className="text-[10px] text-slate-400">{t("label_ref")}</p><p className="font-bold">{existingContract.contract_ref}</p></div>
-                          <div><p className="text-[10px] text-slate-400">{t("label_start")}</p><p className="font-bold">{existingContract.start_date || "—"}</p></div>
-                          <div><p className="text-[10px] text-slate-400">{t("label_end")}</p><p className="font-bold">{existingContract.end_date || "—"}</p></div>
+                          <div>
+                            <p className="text-[10px] text-slate-400">{t("label_ref")}</p>
+                            <p className="font-bold">{existingContract.contract_ref}</p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] text-slate-400">{t("label_start")}</p>
+                            <p className="font-bold">{existingContract.start_date || "—"}</p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] text-slate-400">{t("label_end")}</p>
+                            <p className="font-bold">{existingContract.end_date || "—"}</p>
+                          </div>
                         </div>
                         <a href={existingContract.signed_contract_url} target="_blank" rel="noopener noreferrer"
                           className="inline-flex items-center gap-2 text-xs font-black text-[#0A1628] hover:underline">
@@ -286,22 +358,30 @@ export default function AwardsPage() {
                     ) : (
                       <div className="space-y-4">
                         <p className="text-[10px] font-black uppercase text-slate-400">{t("upload_signed")}</p>
+
+                        {/* Date inputs */}
                         <div className="grid grid-cols-2 gap-4">
                           <div>
                             <label className="block text-xs font-bold text-slate-500 mb-1">
                               <Calendar size={11} className="inline mr-1" />{t("label_contract_start")}
                             </label>
-                            <input type="date" value={form.start_date}
+                            <input
+                              type="date"
+                              value={form.start_date}
                               onChange={e => patchForm(tender.tender_id, { start_date: e.target.value })}
-                              className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0A1628]" />
+                              className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0A1628]"
+                            />
                           </div>
                           <div>
                             <label className="block text-xs font-bold text-slate-500 mb-1">
                               <Calendar size={11} className="inline mr-1" />{t("label_contract_end")}
                             </label>
-                            <input type="date" value={form.end_date}
+                            <input
+                              type="date"
+                              value={form.end_date}
                               onChange={e => patchForm(tender.tender_id, { end_date: e.target.value })}
-                              className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0A1628]" />
+                              className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0A1628]"
+                            />
                           </div>
                         </div>
 
@@ -329,13 +409,20 @@ export default function AwardsPage() {
                               <FileSignature size={24} className="text-slate-300 mx-auto mb-2" />
                               <p className="text-xs font-black text-slate-500">{t("upload_label")}</p>
                               <p className="text-[11px] text-slate-400 mt-1">{t("upload_hint")}</p>
-                              <input type="file" className="hidden" accept=".pdf,.doc,.docx"
-                                onChange={e => { const f = e.target.files?.[0]; if (f) handleFileUpload(tender.tender_id, f); }} />
+                              <input
+                                type="file"
+                                className="hidden"
+                                accept=".pdf,.doc,.docx"
+                                onChange={e => {
+                                  const f = e.target.files?.[0];
+                                  if (f) handleFileUpload(tender.tender_id, f);
+                                }}
+                              />
                             </label>
                           )}
                         </div>
 
-                        {/* What happens next info */}
+                        {/* What happens next */}
                         <div className="bg-slate-50 rounded-xl p-3 flex items-start gap-2 text-[11px] text-slate-500">
                           <Layers size={12} className="text-violet-500 mt-0.5 shrink-0" />
                           Confirming will mark this tender <strong className="mx-0.5">Contract Signed</strong>,
@@ -343,9 +430,12 @@ export default function AwardsPage() {
                           and create an entry in the Design Review module.
                         </div>
 
-                        <button onClick={() => handleCreateContract(tender)}
+                        <button
+                          type="button"
+                          onClick={() => handleCreateContract(tender)}
                           disabled={processing === tender.tender_id || !form.signed_contract_url}
-                          className="flex items-center gap-2 px-6 py-3 bg-[#0A1628] text-white text-sm font-black rounded-xl hover:bg-slate-800 disabled:opacity-50 transition-colors">
+                          className="flex items-center gap-2 px-6 py-3 bg-[#0A1628] text-white text-sm font-black rounded-xl hover:bg-slate-800 disabled:opacity-50 transition-colors"
+                        >
                           {processing === tender.tender_id
                             ? <Loader2 size={14} className="animate-spin" />
                             : <CheckCircle2 size={14} />}
@@ -361,6 +451,7 @@ export default function AwardsPage() {
         )}
       </div>
 
+      {/* Toast */}
       {toast && (
         <div className={`fixed bottom-6 right-6 px-6 py-4 rounded-2xl shadow-2xl text-sm font-bold text-white z-50 max-w-sm flex items-center gap-3 ${
           toast.type === "success" ? "bg-green-600" : "bg-red-500"

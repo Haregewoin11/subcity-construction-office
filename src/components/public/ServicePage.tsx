@@ -25,7 +25,7 @@ const supabase = createClient(
 import enMessages from "@/app/[locale]/en.json";
 import amMessages from "@/app/[locale]/am.json";
 
-type AnyObj = Record<string, any>;
+type AnyObj = Record<string, unknown>;
 
 // ── Inline translation hook ───────────────────────────────────────────────────
 function useTranslation(lang: SiteLang) {
@@ -109,7 +109,6 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function ServicesPage({
   locale,
-  lang: initLang = "en",
 }: {
   locale: string;
   lang?: SiteLang;
@@ -168,7 +167,7 @@ export default function ServicesPage({
 
   // ── Utility bar — shared across success + main views ──────────────────────
   const UtilBar = (
-    <div className="bg-[#071220] border-b border-white/[0.06] text-[11.5px] fixed top-0 left-0 right-0 z-50">
+    <div className="bg-[#071220] border-b border-white/6 text-[11.5px] fixed top-0 left-0 right-0 z-50">
       <div className="max-w-[1400px] mx-auto px-8 h-8 flex items-center justify-between">
         <div className="hidden md:flex items-center gap-6 text-white/35">
           <a href={`tel:${t("util_bar.phone")}`}
@@ -242,7 +241,7 @@ export default function ServicesPage({
         <div className="absolute inset-0 opacity-[0.04]" style={{
           backgroundImage: "repeating-linear-gradient(0deg,#fff 0,#fff 1px,transparent 1px,transparent 60px),repeating-linear-gradient(90deg,#fff 0,#fff 1px,transparent 1px,transparent 60px)",
         }} />
-        <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-[#E85D1A] to-transparent" />
+        <div className="absolute bottom-0 left-0 right-0 h-px bg-linear-to-r from-[#E85D1A] to-transparent" />
         <div className="relative max-w-7xl mx-auto px-6">
           {/* <p className={`text-[10px] font-black uppercase tracking-[0.5em] text-[#E85D1A] mb-4 ${amCls}`}>
             {t("services.eyebrow")}

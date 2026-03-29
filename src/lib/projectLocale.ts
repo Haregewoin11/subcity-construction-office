@@ -35,9 +35,8 @@ export function getProjectDescription(project: ProjectRow, locale: LocaleCode): 
  */
 export function getProjectLocalized(project: ProjectRow, locale: LocaleCode) {
   return {
-    name:        getProjectName(project, locale),
+    name: getProjectName(project, locale),
     description: getProjectDescription(project, locale),
-    /** True if the project has an Amharic name entered by an admin */
     hasAmharicName: Boolean(project.name_am),
   };
 }

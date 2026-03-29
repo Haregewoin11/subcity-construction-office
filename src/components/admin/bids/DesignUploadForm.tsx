@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { 
   Upload, FileText, CheckCircle2, Loader2, 
-  AlertTriangle, hardHat, ShieldAlert, X 
+  AlertTriangle, ShieldAlert, X 
 } from "lucide-react";
 import { createClient } from "@/lib/actions/supabase/clients";
 import { toast } from "sonner";
@@ -41,28 +41,26 @@ export default function DesignUploadForm({ projectId, projectName, onSuccess }: 
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!file) return toast.error("File is required");
 
     setUploading(true);
     try {
-      // 1. Storage Path: projects/[id]/designs/[type]_[timestamp].pdf
-      const fileExt = file.name.split('.').pop();
+      const fileExt = file.name.split('.').pop() || 'pdf';
       const path = `projects/${projectId}/designs/${drawingType}_${Date.now()}.${fileExt}`;
 
-      const { data: uploadData, error: uploadError } = await supabase.storage
+      const { error: uploadError } = await supabase.storage
         .from('technical-drawings')
         .upload(path, file);
 
       if (uploadError) throw uploadError;
 
-      // 2. Get the public URL for the database record
       const { data: { publicUrl } } = supabase.storage
         .from('technical-drawings')
         .getPublicUrl(path);
 
-      // 3. Create the Submission Record (The Forensic Entry)
+      // 3. Create the Submission Record
       const { error: dbError } = await supabase
         .from('design_submissions')
         .insert([{
@@ -89,8 +87,10 @@ export default function DesignUploadForm({ projectId, projectName, onSuccess }: 
       setFile(null);
       setDescription("");
       onSuccess();
-    } catch (err: any) {
-      toast.error("Submission Failed", { description: err.message });
+    } catch (err: unknown) {
+      // FIX: Standardizing error handling for forensics logs
+      const errorMessage = err instanceof Error ? err.message : "A database connection error occurred during submission.";
+      toast.error("Submission Failed", { description: errorMessage });
     } finally {
       setUploading(false);
     }

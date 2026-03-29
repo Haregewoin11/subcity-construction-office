@@ -1,9 +1,9 @@
 "use client";
 // src/app/[locale]/admin/tenders/bids/page.tsx
 
-import React, { useEffect, useState, useCallback, useRef } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useLocale } from "next-intl";
-import { createClient } from "@/lib/actions/supabase/clients";
+import { useAuth } from "@/context/Authcontext";
 import Link from "next/link";
 import {
   ArrowLeft, Trophy, Star, Loader2, ChevronDown, ChevronUp,
@@ -13,6 +13,12 @@ import {
 } from "lucide-react";
 
 // ── Types ──────────────────────────────────────────────────────────────────
+type TenderInfo = {
+  ref_no: string; title: string; status: string;
+  budget_estimate: number; evaluation_method: string;
+  currency: string; project_id: string | null;
+};
+
 type BidSubmission = {
   id: string; submission_ref: string; tender_id: string;
   company_name: string; tin_number: string; license_number: string;
@@ -23,11 +29,13 @@ type BidSubmission = {
   status: string; technical_score: number; financial_score: number;
   evaluation_notes: string | null; is_shortlisted: boolean; is_winner: boolean;
   admin_notes: string | null; created_at: string; awarded_at: string | null;
-  tenders?: {
-    ref_no: string; title: string; status: string;
-    budget_estimate: number; evaluation_method: string; currency: string;
-    project_id: string | null;
-  };
+  tenders: TenderInfo | null;
+};
+
+// Raw Supabase row — tenders may come back as array or object depending on
+// whether the project has generated types. We normalise it in the mapping step.
+type RawRow = Omit<BidSubmission, "tenders"> & {
+  tenders: TenderInfo | TenderInfo[] | null;
 };
 
 type TenderGroup = {
@@ -36,14 +44,16 @@ type TenderGroup = {
   project_id: string | null; submissions: BidSubmission[];
 };
 
+type ScoreEntry = { technical: string; financial: string; notes: string; admin_notes: string };
+
 // ── Helpers ────────────────────────────────────────────────────────────────
-function fmt(n: number) {
+function fmt(n: number): string {
   if (n >= 1e9) return (n / 1e9).toFixed(1) + "B";
   if (n >= 1e6) return (n / 1e6).toFixed(1) + "M";
   if (n >= 1e3) return (n / 1e3).toFixed(0) + "K";
   return n.toLocaleString();
 }
-function fmtDate(d: string) {
+function fmtDate(d: string): string {
   return new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 }
 
@@ -65,67 +75,94 @@ const TENDER_STATUS_CSS: Record<string, string> = {
 
 // ── Page ───────────────────────────────────────────────────────────────────
 export default function BidManagementPage() {
-  const locale   = useLocale();
-  const supabase = useRef(createClient()).current;
+  const locale         = useLocale();
+  const { supabase }   = useAuth();
 
-  const [groups,      setGroups]      = useState<TenderGroup[]>([]);
-  const [loading,     setLoading]     = useState(true);
-  const [expanded,    setExpanded]    = useState<string | null>(null);
-  const [detailOpen,  setDetailOpen]  = useState<string | null>(null);
-  const [processing,  setProcessing]  = useState<string | null>(null);
-  const [toast,       setToast]       = useState<{ msg: string; type: "success" | "error" } | null>(null);
+  const [groups,       setGroups]       = useState<TenderGroup[]>([]);
+  const [loading,      setLoading]      = useState(true);
+  const [expanded,     setExpanded]     = useState<string | null>(null);
+  const [detailOpen,   setDetailOpen]   = useState<string | null>(null);
+  const [processing,   setProcessing]   = useState<string | null>(null);
+  const [toast,        setToast]        = useState<{ msg: string; type: "success" | "error" } | null>(null);
   const [filterStatus, setFilterStatus] = useState("All");
-  const [scores, setScores] = useState<Record<string, {
-    technical: string; financial: string; notes: string; admin_notes: string;
-  }>>({});
+  const [scores,       setScores]       = useState<Record<string, ScoreEntry>>({});
 
-  // ── Load ─────────────────────────────────────────────────────────────────
-  const load = useCallback(async () => {
-    setLoading(true);
-    const { data, error } = await supabase
-      .from("bid_submissions")
-      .select(`
-        id, submission_ref, tender_id, company_name, tin_number, license_number,
-        contact_person, contact_email, contact_phone, physical_address,
-        years_of_experience, financial_offer, currency, technical_approach,
-        project_timeline_days, status, technical_score, financial_score,
-        evaluation_notes, is_shortlisted, is_winner, admin_notes,
-        created_at, awarded_at,
-        tenders(ref_no, title, status, budget_estimate, evaluation_method, currency, project_id)
-      `)
-      .order("created_at", { ascending: false });
-
-    if (error) { showToast(error.message, "error"); setLoading(false); return; }
-
-    const map = new Map<string, TenderGroup>();
-    for (const sub of (data ?? []) as BidSubmission[]) {
-      const tid = sub.tender_id;
-      if (!map.has(tid)) {
-        map.set(tid, {
-          tender_id:         tid,
-          ref_no:            sub.tenders?.ref_no            ?? "—",
-          title:             sub.tenders?.title             ?? "Unknown Tender",
-          status:            sub.tenders?.status            ?? "—",
-          budget_estimate:   sub.tenders?.budget_estimate   ?? 0,
-          evaluation_method: sub.tenders?.evaluation_method ?? "Lowest Price",
-          currency:          sub.tenders?.currency          ?? "ETB",
-          project_id:        sub.tenders?.project_id        ?? null,
-          submissions:       [],
-        });
-      }
-      map.get(tid)!.submissions.push(sub);
-    }
-    setGroups(Array.from(map.values()));
-    setLoading(false);
-  }, []);
-
-  useEffect(() => { load(); }, [load]);
+  // ── tick: incrementing triggers a re-fetch in the useEffect ──────────────
+  const [tick, setTick] = useState(0);
+  const refresh = useCallback(() => setTick(t => t + 1), []);
 
   function showToast(msg: string, type: "success" | "error") {
-    setToast({ msg, type }); setTimeout(() => setToast(null), 4000);
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 4000);
   }
 
-  function scoreFor(sub: BidSubmission) {
+  // ── Data fetch — inlined so ESLint can see setState calls ─────────────
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchData = async () => {
+      setLoading(true);
+
+      const { data, error } = await supabase
+        .from("bid_submissions")
+        .select(`
+          id, submission_ref, tender_id, company_name, tin_number, license_number,
+          contact_person, contact_email, contact_phone, physical_address,
+          years_of_experience, financial_offer, currency, technical_approach,
+          project_timeline_days, status, technical_score, financial_score,
+          evaluation_notes, is_shortlisted, is_winner, admin_notes,
+          created_at, awarded_at,
+          tenders(ref_no, title, status, budget_estimate, evaluation_method, currency, project_id)
+        `)
+        .order("created_at", { ascending: false });
+
+      if (cancelled) return;
+
+      if (error) {
+        showToast(error.message, "error");
+        setLoading(false);
+        return;
+      }
+
+      // Normalise: tenders may be an array (Supabase default) or a single object
+      const rows = (Array.isArray(data) ? data : []) as unknown as RawRow[];
+
+      const map = new Map<string, TenderGroup>();
+      rows.forEach(item => {
+        const sub: BidSubmission = {
+          ...item,
+          tenders: Array.isArray(item.tenders) ? (item.tenders[0] ?? null) : item.tenders,
+        };
+
+        const tid = sub.tender_id;
+        if (!map.has(tid)) {
+          map.set(tid, {
+            tender_id:         tid,
+            ref_no:            sub.tenders?.ref_no            ?? "—",
+            title:             sub.tenders?.title             ?? "Unknown Tender",
+            status:            sub.tenders?.status            ?? "—",
+            budget_estimate:   sub.tenders?.budget_estimate   ?? 0,
+            evaluation_method: sub.tenders?.evaluation_method ?? "Lowest Price",
+            currency:          sub.tenders?.currency          ?? "ETB",
+            project_id:        sub.tenders?.project_id        ?? null,
+            submissions:       [],
+          });
+        }
+        map.get(tid)!.submissions.push(sub);
+      });
+
+      if (!cancelled) {
+        setGroups(Array.from(map.values()));
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+    return () => { cancelled = true; };
+  }, [supabase, tick]); // tick re-runs effect when refresh() is called
+
+  // ── Score helper ──────────────────────────────────────────────────────────
+  function scoreFor(sub: BidSubmission): ScoreEntry {
     return scores[sub.id] ?? {
       technical:   String(sub.technical_score  ?? 0),
       financial:   String(sub.financial_score  ?? 0),
@@ -134,7 +171,7 @@ export default function BidManagementPage() {
     };
   }
 
-  // ── Actions ───────────────────────────────────────────────────────────────
+  // ── Actions — all call refresh() instead of load() ────────────────────────
   async function handleStatusChange(subId: string, status: string) {
     setProcessing(subId);
     const { error } = await supabase
@@ -142,7 +179,7 @@ export default function BidManagementPage() {
       .update({ status, reviewed_at: new Date().toISOString() })
       .eq("id", subId);
     if (error) showToast(error.message, "error");
-    else { showToast(`Status → ${status}`, "success"); load(); }
+    else { showToast(`Status → ${status}`, "success"); refresh(); }
     setProcessing(null);
   }
 
@@ -158,7 +195,7 @@ export default function BidManagementPage() {
       reviewed_at:      new Date().toISOString(),
     }).eq("id", sub.id);
     if (error) showToast(error.message, "error");
-    else { showToast("Scores saved", "success"); load(); }
+    else { showToast("Scores saved", "success"); refresh(); }
     setProcessing(null);
   }
 
@@ -169,26 +206,26 @@ export default function BidManagementPage() {
       status: !current ? "Shortlisted" : "Under Review",
     }).eq("id", subId);
     if (error) showToast(error.message, "error");
-    else { showToast(!current ? "Shortlisted" : "Removed from shortlist", "success"); load(); }
+    else { showToast(!current ? "Shortlisted" : "Removed from shortlist", "success"); refresh(); }
     setProcessing(null);
   }
 
-  // Award → mark winner + Awarded tender + advance project to Design Phase
   async function handleAward(sub: BidSubmission, group: TenderGroup) {
-    if (!confirm(`Award contract to ${sub.company_name}?\n\nThis will:\n• Mark this bid as the winner\n• Set the tender status to Awarded\n• Move the linked project to Design Phase`)) return;
+    if (!confirm(
+      `Award contract to ${sub.company_name}?\n\nThis will:\n` +
+      `• Mark this bid as the winner\n• Set the tender status to Awarded\n` +
+      `• Move the linked project to Design Phase`
+    )) return;
     setProcessing(sub.id);
 
-    // 1. Mark winning submission
     const { error: e1 } = await supabase.from("bid_submissions").update({
       is_winner: true, status: "Awarded", awarded_at: new Date().toISOString(),
     }).eq("id", sub.id);
 
-    // 2. Flip tender → Awarded
     const { error: e2 } = await supabase.from("tenders").update({
       status: "Awarded", updated_at: new Date().toISOString(),
     }).eq("tender_id", group.tender_id);
 
-    // 3. Advance linked project → Design Phase (if project is linked and still at Planned)
     let projectAdvanced = false;
     if (group.project_id) {
       const { error: e3 } = await supabase.from("projects")
@@ -199,11 +236,11 @@ export default function BidManagementPage() {
     }
 
     if (e1 || e2) {
-      showToast((e1 || e2)!.message, "error");
+      showToast((e1 ?? e2)!.message, "error");
     } else {
       const extra = projectAdvanced ? " · Project moved to Design Phase ✓" : "";
       showToast(`Contract awarded to ${sub.company_name}${extra}`, "success");
-      load();
+      refresh();
     }
     setProcessing(null);
   }
@@ -215,7 +252,7 @@ export default function BidManagementPage() {
       status: "Under Evaluation", updated_at: new Date().toISOString(),
     }).eq("tender_id", group.tender_id);
     if (error) showToast(error.message, "error");
-    else { showToast("Tender closed for evaluation", "success"); load(); }
+    else { showToast("Tender closed for evaluation", "success"); refresh(); }
     setProcessing(null);
   }
 
@@ -248,8 +285,12 @@ export default function BidManagementPage() {
               Review, evaluate and award public bid submissions
             </p>
           </div>
-          <button onClick={load} disabled={loading}
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50 transition-colors">
+          <button
+            type="button"
+            onClick={refresh}
+            disabled={loading}
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50"
+          >
             <RefreshCw size={14} className={loading ? "animate-spin" : ""} /> Refresh
           </button>
         </div>
@@ -274,12 +315,16 @@ export default function BidManagementPage() {
         <div className="flex items-center gap-2 mb-6 flex-wrap">
           <Filter size={14} className="text-slate-400" />
           {["All","Submitted","Under Review","Shortlisted","Rejected","Awarded"].map(f => (
-            <button key={f} onClick={() => setFilterStatus(f)}
+            <button
+              key={f}
+              type="button"
+              onClick={() => setFilterStatus(f)}
               className={`px-4 py-1.5 rounded-full text-xs font-black border transition-colors ${
                 filterStatus === f
                   ? "bg-[#0A1628] text-white border-[#0A1628]"
                   : "bg-white text-slate-500 border-slate-200 hover:border-slate-400"
-              }`}>{f}</button>
+              }`}
+            >{f}</button>
           ))}
         </div>
 
@@ -304,8 +349,8 @@ export default function BidManagementPage() {
 
               const sortedSubs = [...group.submissions].sort((a, b) => {
                 if (a.is_winner !== b.is_winner) return a.is_winner ? -1 : 1;
-                const sa = (a.technical_score||0) + (a.financial_score||0);
-                const sb = (b.technical_score||0) + (b.financial_score||0);
+                const sa = (a.technical_score || 0) + (a.financial_score || 0);
+                const sb = (b.technical_score || 0) + (b.financial_score || 0);
                 return sb !== sa ? sb - sa : a.financial_offer - b.financial_offer;
               });
 
@@ -318,7 +363,9 @@ export default function BidManagementPage() {
                       <div className="flex items-center gap-2 mb-1 flex-wrap">
                         <span className="text-[10px] font-black text-slate-400 font-mono">{group.ref_no}</span>
                         <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${tCss}`}>{group.status}</span>
-                        <span className="text-[10px] text-slate-400">{group.submissions.length} submission{group.submissions.length !== 1?"s":""}</span>
+                        <span className="text-[10px] text-slate-400">
+                          {group.submissions.length} submission{group.submissions.length !== 1 ? "s" : ""}
+                        </span>
                         {winner && (
                           <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-green-100 text-green-700 flex items-center gap-1">
                             <Trophy size={9} /> Awarded
@@ -337,15 +384,23 @@ export default function BidManagementPage() {
                     </div>
                     <div className="flex items-center gap-2">
                       {group.status === "Open" && group.submissions.length > 0 && !winner && (
-                        <button onClick={() => handleCloseForEvaluation(group)}
+                        <button
+                          type="button"
+                          onClick={() => handleCloseForEvaluation(group)}
                           disabled={processing === group.tender_id}
-                          className="px-4 py-2 bg-violet-600 text-white text-xs font-black rounded-xl hover:bg-violet-700 disabled:opacity-50 flex items-center gap-2">
-                          {processing === group.tender_id ? <Loader2 size={12} className="animate-spin"/> : <BarChart3 size={12}/>}
+                          className="px-4 py-2 bg-violet-600 text-white text-xs font-black rounded-xl hover:bg-violet-700 disabled:opacity-50 flex items-center gap-2"
+                        >
+                          {processing === group.tender_id
+                            ? <Loader2 size={12} className="animate-spin"/>
+                            : <BarChart3 size={12}/>}
                           Close for Evaluation
                         </button>
                       )}
-                      <button onClick={() => setExpanded(isExpanded ? null : group.tender_id)}
-                        className="p-2 rounded-xl border border-slate-200 hover:bg-slate-50 transition-colors">
+                      <button
+                        type="button"
+                        onClick={() => setExpanded(isExpanded ? null : group.tender_id)}
+                        className="p-2 rounded-xl border border-slate-200 hover:bg-slate-50 transition-colors"
+                      >
                         {isExpanded ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}
                       </button>
                     </div>
@@ -358,7 +413,7 @@ export default function BidManagementPage() {
                         <div className="p-10 text-center text-slate-400 text-sm">No submissions for this tender.</div>
                       ) : sortedSubs.map((sub, idx) => {
                         const sc         = STATUS_CFG[sub.status] ?? STATUS_CFG["Submitted"];
-                        const totalScore = (sub.technical_score||0) + (sub.financial_score||0);
+                        const totalScore = (sub.technical_score || 0) + (sub.financial_score || 0);
                         const isTopBid   = idx === 0 && !sub.is_winner && totalScore > 0;
                         const isDetail   = detailOpen === sub.id;
                         const ed         = scoreFor(sub);
@@ -376,7 +431,7 @@ export default function BidManagementPage() {
                                     : isTopBid    ? "bg-amber-400 text-white"
                                     : "bg-slate-100 text-slate-500"
                                   }`}>
-                                    {sub.is_winner ? <Trophy size={14}/> : isTopBid ? <Star size={14}/> : idx+1}
+                                    {sub.is_winner ? <Trophy size={14}/> : isTopBid ? <Star size={14}/> : idx + 1}
                                   </div>
                                   <div>
                                     <div className="flex items-center gap-2 flex-wrap">
@@ -401,7 +456,9 @@ export default function BidManagementPage() {
                                   <p className="font-black text-[#0A1628] text-lg">{fmt(sub.financial_offer)} {sub.currency}</p>
                                   <p className="text-[10px] text-slate-400">Financial Offer</p>
                                   {totalScore > 0 && <p className="text-xs font-black text-violet-600 mt-1">Score: {totalScore}/100</p>}
-                                  {sub.project_timeline_days && <p className="text-[10px] text-slate-400">{sub.project_timeline_days}d timeline</p>}
+                                  {sub.project_timeline_days !== null && (
+                                    <p className="text-[10px] text-slate-400">{sub.project_timeline_days}d timeline</p>
+                                  )}
                                 </div>
                               </div>
 
@@ -409,15 +466,16 @@ export default function BidManagementPage() {
                               {totalScore > 0 && (
                                 <div className="mt-4 grid grid-cols-3 gap-3">
                                   {[
-                                    { label:"Technical", val:sub.technical_score, max:70, color:"#0A1628" },
-                                    { label:"Financial",  val:sub.financial_score, max:30, color:"#039737" },
-                                    { label:"Total",      val:totalScore,          max:100,color:"#8E44AD" },
+                                    { label: "Technical", val: sub.technical_score, max: 70,  color: "#0A1628" },
+                                    { label: "Financial", val: sub.financial_score, max: 30,  color: "#039737" },
+                                    { label: "Total",     val: totalScore,          max: 100, color: "#8E44AD" },
                                   ].map(s => (
                                     <div key={s.label} className="bg-slate-50 rounded-xl p-3">
                                       <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">{s.label}</p>
-                                      <p className="text-lg font-black" style={{color:s.color}}>{s.val}</p>
+                                      <p className="text-lg font-black" style={{ color: s.color }}>{s.val}</p>
                                       <div className="w-full bg-slate-200 rounded-full h-1 mt-1">
-                                        <div className="h-1 rounded-full transition-all" style={{width:`${Math.min(100,(s.val/s.max)*100)}%`,backgroundColor:s.color}}/>
+                                        <div className="h-1 rounded-full transition-all"
+                                          style={{ width: `${Math.min(100, (s.val / s.max) * 100)}%`, backgroundColor: s.color }}/>
                                       </div>
                                     </div>
                                   ))}
@@ -426,44 +484,62 @@ export default function BidManagementPage() {
 
                               {/* Action buttons */}
                               <div className="mt-4 flex items-center gap-2 flex-wrap">
-                                <button onClick={() => setDetailOpen(isDetail ? null : sub.id)}
-                                  className="flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-50 transition-colors">
+                                <button
+                                  type="button"
+                                  onClick={() => setDetailOpen(isDetail ? null : sub.id)}
+                                  className="flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-50 transition-colors"
+                                >
                                   <Eye size={12}/> {isDetail ? "Hide" : "View Details"}
                                 </button>
+
                                 {!sub.is_winner && sub.status !== "Awarded" && (
                                   <>
                                     {sub.status === "Submitted" && (
-                                      <button onClick={() => handleStatusChange(sub.id, "Under Review")}
-                                        disabled={processing===sub.id}
-                                        className="px-3 py-1.5 bg-amber-500 text-white text-xs font-black rounded-xl hover:bg-amber-600 disabled:opacity-50 flex items-center gap-1.5">
-                                        {processing===sub.id ? <Loader2 size={11} className="animate-spin"/> : <Clock size={11}/>}
+                                      <button
+                                        type="button"
+                                        onClick={() => handleStatusChange(sub.id, "Under Review")}
+                                        disabled={processing === sub.id}
+                                        className="px-3 py-1.5 bg-amber-500 text-white text-xs font-black rounded-xl hover:bg-amber-600 disabled:opacity-50 flex items-center gap-1.5"
+                                      >
+                                        {processing === sub.id ? <Loader2 size={11} className="animate-spin"/> : <Clock size={11}/>}
                                         Under Review
                                       </button>
                                     )}
-                                    <button onClick={() => handleShortlist(sub.id, sub.is_shortlisted)}
-                                      disabled={processing===sub.id}
+                                    <button
+                                      type="button"
+                                      onClick={() => handleShortlist(sub.id, sub.is_shortlisted)}
+                                      disabled={processing === sub.id}
                                       className={`px-3 py-1.5 text-xs font-black rounded-xl disabled:opacity-50 flex items-center gap-1.5 transition-colors ${
                                         sub.is_shortlisted
                                           ? "bg-violet-100 text-violet-700 hover:bg-violet-200"
                                           : "bg-violet-600 text-white hover:bg-violet-700"
-                                      }`}>
+                                      }`}
+                                    >
                                       <Star size={11}/> {sub.is_shortlisted ? "Remove" : "Shortlist"}
                                     </button>
-                                    <button onClick={() => handleStatusChange(sub.id,"Rejected")}
-                                      disabled={processing===sub.id}
-                                      className="px-3 py-1.5 bg-red-50 text-red-600 text-xs font-black rounded-xl hover:bg-red-100 disabled:opacity-50 flex items-center gap-1.5">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleStatusChange(sub.id, "Rejected")}
+                                      disabled={processing === sub.id}
+                                      className="px-3 py-1.5 bg-red-50 text-red-600 text-xs font-black rounded-xl hover:bg-red-100 disabled:opacity-50 flex items-center gap-1.5"
+                                    >
                                       <XCircle size={11}/> Reject
                                     </button>
                                   </>
                                 )}
+
                                 {(isEval || sub.is_shortlisted) && !sub.is_winner && sub.status !== "Rejected" && (
-                                  <button onClick={() => handleAward(sub, group)}
-                                    disabled={processing===sub.id}
-                                    className="px-4 py-1.5 bg-green-600 text-white text-xs font-black rounded-xl hover:bg-green-700 disabled:opacity-50 flex items-center gap-1.5 ml-auto">
-                                    {processing===sub.id ? <Loader2 size={12} className="animate-spin"/> : <Trophy size={12}/>}
+                                  <button
+                                    type="button"
+                                    onClick={() => handleAward(sub, group)}
+                                    disabled={processing === sub.id}
+                                    className="px-4 py-1.5 bg-green-600 text-white text-xs font-black rounded-xl hover:bg-green-700 disabled:opacity-50 flex items-center gap-1.5 ml-auto"
+                                  >
+                                    {processing === sub.id ? <Loader2 size={12} className="animate-spin"/> : <Trophy size={12}/>}
                                     Award Contract
                                   </button>
                                 )}
+
                                 {sub.is_winner && (
                                   <div className="ml-auto flex items-center gap-2 text-green-700 text-xs font-black bg-green-100 px-4 py-1.5 rounded-xl">
                                     <Trophy size={13}/> Contract Awarded
@@ -486,7 +562,9 @@ export default function BidManagementPage() {
                                   {sub.technical_approach && (
                                     <div>
                                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1.5">Technical Approach</p>
-                                      <p className="text-xs text-slate-600 leading-relaxed bg-white rounded-xl p-3 border border-slate-200">{sub.technical_approach}</p>
+                                      <p className="text-xs text-slate-600 leading-relaxed bg-white rounded-xl p-3 border border-slate-200">
+                                        {sub.technical_approach}
+                                      </p>
                                     </div>
                                   )}
 
@@ -499,32 +577,60 @@ export default function BidManagementPage() {
                                       <div className="grid grid-cols-2 gap-3 mb-3">
                                         <div>
                                           <label className="text-[10px] font-black text-slate-500 block mb-1">Technical Score (0–70)</label>
-                                          <input type="number" min="0" max="70" value={ed.technical}
-                                            onChange={e => setScores(s => ({...s,[sub.id]:{...scoreFor(sub),...s[sub.id],technical:e.target.value}}))}
-                                            className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0A1628] bg-white"/>
+                                          <input
+                                            type="number" min="0" max="70" value={ed.technical}
+                                            onChange={e => setScores(s => ({
+                                              ...s,
+                                              [sub.id]: { ...scoreFor(sub), ...s[sub.id], technical: e.target.value },
+                                            }))}
+                                            className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0A1628] bg-white"
+                                          />
                                         </div>
                                         <div>
                                           <label className="text-[10px] font-black text-slate-500 block mb-1">Financial Score (0–30)</label>
-                                          <input type="number" min="0" max="30" value={ed.financial}
-                                            onChange={e => setScores(s => ({...s,[sub.id]:{...scoreFor(sub),...s[sub.id],financial:e.target.value}}))}
-                                            className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0A1628] bg-white"/>
+                                          <input
+                                            type="number" min="0" max="30" value={ed.financial}
+                                            onChange={e => setScores(s => ({
+                                              ...s,
+                                              [sub.id]: { ...scoreFor(sub), ...s[sub.id], financial: e.target.value },
+                                            }))}
+                                            className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0A1628] bg-white"
+                                          />
                                         </div>
                                       </div>
-                                      <input placeholder="Evaluation notes…" value={ed.notes}
-                                        onChange={e => setScores(s => ({...s,[sub.id]:{...scoreFor(sub),...s[sub.id],notes:e.target.value}}))}
-                                        className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0A1628] bg-white mb-2"/>
-                                      <input placeholder="Internal admin notes (not visible to bidder)…" value={ed.admin_notes}
-                                        onChange={e => setScores(s => ({...s,[sub.id]:{...scoreFor(sub),...s[sub.id],admin_notes:e.target.value}}))}
-                                        className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0A1628] bg-white mb-3"/>
+                                      <input
+                                        placeholder="Evaluation notes…" value={ed.notes}
+                                        onChange={e => setScores(s => ({
+                                          ...s,
+                                          [sub.id]: { ...scoreFor(sub), ...s[sub.id], notes: e.target.value },
+                                        }))}
+                                        className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0A1628] bg-white mb-2"
+                                      />
+                                      <input
+                                        placeholder="Internal admin notes (not visible to bidder)…" value={ed.admin_notes}
+                                        onChange={e => setScores(s => ({
+                                          ...s,
+                                          [sub.id]: { ...scoreFor(sub), ...s[sub.id], admin_notes: e.target.value },
+                                        }))}
+                                        className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0A1628] bg-white mb-3"
+                                      />
                                       <div className="flex gap-2">
-                                        <button onClick={() => handleSaveScore(sub)} disabled={processing===sub.id}
-                                          className="flex items-center gap-2 px-4 py-2 bg-[#0A1628] text-white text-xs font-black rounded-xl hover:bg-slate-800 disabled:opacity-50">
-                                          {processing===sub.id && <Loader2 size={11} className="animate-spin"/>}
+                                        <button
+                                          type="button"
+                                          onClick={() => handleSaveScore(sub)}
+                                          disabled={processing === sub.id}
+                                          className="flex items-center gap-2 px-4 py-2 bg-[#0A1628] text-white text-xs font-black rounded-xl hover:bg-slate-800 disabled:opacity-50"
+                                        >
+                                          {processing === sub.id && <Loader2 size={11} className="animate-spin"/>}
                                           <CheckCircle2 size={12}/> Save Scores
                                         </button>
                                         {(isEval || sub.is_shortlisted) && (
-                                          <button onClick={() => handleAward(sub,group)} disabled={processing===sub.id}
-                                            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white text-xs font-black rounded-xl hover:bg-green-700 disabled:opacity-50">
+                                          <button
+                                            type="button"
+                                            onClick={() => handleAward(sub, group)}
+                                            disabled={processing === sub.id}
+                                            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white text-xs font-black rounded-xl hover:bg-green-700 disabled:opacity-50"
+                                          >
                                             <Trophy size={12}/> Award Contract
                                           </button>
                                         )}
@@ -546,11 +652,12 @@ export default function BidManagementPage() {
         )}
       </div>
 
+      {/* Toast */}
       {toast && (
         <div className={`fixed bottom-6 right-6 px-6 py-4 rounded-2xl shadow-2xl text-sm font-bold text-white z-50 max-w-sm flex items-center gap-3 ${
-          toast.type==="success" ? "bg-green-600" : "bg-red-500"
+          toast.type === "success" ? "bg-green-600" : "bg-red-500"
         }`}>
-          {toast.type==="success" ? <CheckCircle2 size={16}/> : <AlertTriangle size={16}/>}
+          {toast.type === "success" ? <CheckCircle2 size={16}/> : <AlertTriangle size={16}/>}
           {toast.msg}
         </div>
       )}
@@ -558,10 +665,13 @@ export default function BidManagementPage() {
   );
 }
 
+// ── Info Cell ──────────────────────────────────────────────────────────────
 function IC({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
     <div>
-      <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider flex items-center gap-1 mb-0.5">{icon}{label}</p>
+      <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider flex items-center gap-1 mb-0.5">
+        {icon}{label}
+      </p>
       <p className="text-xs font-bold text-slate-700 break-all">{value}</p>
     </div>
   );

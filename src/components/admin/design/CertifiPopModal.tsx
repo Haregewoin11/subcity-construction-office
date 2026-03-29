@@ -37,7 +37,7 @@ export function CertificationModal({ isOpen, onClose, onConfirm, projectName }: 
           <div className="bg-amber-50 rounded-[2rem] p-6 border border-amber-100 flex gap-4">
             <AlertTriangle className="text-amber-500 shrink-0" size={24} />
             <p className="text-[11px] font-bold text-amber-800 leading-relaxed uppercase">
-              Warning: Sealing this design will freeze technical revisions and move <span className="underline">"{projectName}"</span> to the BOQ & Cost Verification phase.
+              Warning: Sealing this design will freeze technical revisions and move <span className="underline">&#34;`{projectName}&#34;`</span> to the BOQ & Cost Verification phase.
             </p>
           </div>
 

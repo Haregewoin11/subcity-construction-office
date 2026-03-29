@@ -6,14 +6,21 @@ import { linkProjectFiles } from "@/lib/actions/projects";
 import { FileUp, X, CheckCircle2, Loader2, FileText, Image as ImageIcon } from "lucide-react";
 import { toast } from "sonner";
 
+type ProjectFile = {
+  name: string;
+  url: string;
+  type: string;
+};
+
 interface FileUploadProps {
   projectId: string;
   onUploadComplete?: () => void;
 }
-
 export function FileUpload({ projectId, onUploadComplete }: FileUploadProps) {
   const [uploading, setUploading] = useState(false);
-  const [uploadedFiles, setUploadedFiles] = useState<{ name: string; url: string; type: string }[]>([]);
+  const [uploadedFiles, setUploadedFiles] = useState<ProjectFile[]>([]);
+  
+  // Initialize client once
   const supabase = createClient();
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -21,44 +28,38 @@ export function FileUpload({ projectId, onUploadComplete }: FileUploadProps) {
     if (!files || files.length === 0) return;
 
     setUploading(true);
-    const newUploads = [];
+    const newUploads: ProjectFile[] = []; // Explicitly typed array
 
     for (const file of Array.from(files)) {
       try {
-        // 1. Generate Forensic File Path
         const fileExt = file.name.split(".").pop();
-        const fileName = `${Math.random()}-${Date.now()}.${fileExt}`;
+        const fileName = `${crypto.randomUUID()}.${fileExt}`; // More forensic than Math.random()
         const filePath = `${projectId}/${fileName}`;
 
-        // 2. Upload to Supabase Storage (Bucket name: 'project-evidence')
-        const { error: uploadError, data } = await supabase.storage
+        const { error: uploadError } = await supabase.storage
           .from("project-documents")
           .upload(filePath, file);
 
-          console.log("Upload result:", { data, uploadError }); 
-
         if (uploadError) throw uploadError;
 
-        // 3. Get Public URL
         const { data: { publicUrl } } = supabase.storage
           .from("project-documents")
           .getPublicUrl(filePath);
 
-        const fileData = {
+        const fileData: ProjectFile = {
           name: file.name,
           url: publicUrl,
           type: file.type,
         };
 
-        // 4. Link to Database
         await linkProjectFiles(projectId, [fileData]);
-        
         newUploads.push(fileData);
         toast.success(`${file.name} secured.`);
         
-      } catch (error: any) {
-        toast.error(`Upload failed for ${file.name}`);
-        console.error(error);
+      } catch (error) {
+        // Safe error handling
+        const errorMessage = error instanceof Error ? error.message : "Storage connection failed";
+        toast.error(`Upload failed for ${file.name}: ${errorMessage}`);
       }
     }
 

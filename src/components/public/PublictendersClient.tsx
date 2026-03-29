@@ -5,7 +5,7 @@
 //   It is server-resolved and won't re-render when lang state changes.
 //   Import JSON directly and walk with a local t() memoized on lang state.
 
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useState, useMemo, useCallback, useEffect } from "react";
 import Link from "next/link";
 import { PublicNav } from "@/components/public/Publicnav";
 import { useRouter, usePathname } from "next/navigation";
@@ -22,6 +22,7 @@ import amMessages from "@/app/[locale]/am.json";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 export type SiteLang = "en" | "am";
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyObj = Record<string, any>;
 
 type Tender = {
@@ -97,6 +98,10 @@ export default function PublicTendersClient({
   const [typeFilter,   setTypeFilter]   = useState("All");
   const [woredaFilter, setWoredaFilter] = useState("All");
   const [expanded,     setExpanded]     = useState<string | null>(null);
+  const [nowMs, setNowMs] = useState<number | null>(null);
+  useEffect(() => {
+    void Promise.resolve().then(() => setNowMs(Date.now()));
+  }, []);
 
   const projectTypes = useMemo(() =>
     ["All", ...Array.from(new Set(tenders.map(tn => tn.project_type).filter(Boolean)))],
@@ -119,11 +124,16 @@ export default function PublicTendersClient({
     );
   }), [tenders, search, typeFilter, woredaFilter]);
 
-  const urgentCount = tenders.filter(tn => {
-    if (!tn.submission_deadline) return false;
-    const d = Math.ceil((new Date(tn.submission_deadline).getTime() - Date.now()) / 86_400_000);
-    return d >= 0 && d <= 7;
-  }).length;
+  const urgentCount = useMemo(() => {
+    if (nowMs == null) return 0;
+    return tenders.filter(tn => {
+      if (!tn.submission_deadline) return false;
+      const d = Math.ceil(
+        (new Date(tn.submission_deadline).getTime() - nowMs) / 86_400_000
+      );
+      return d >= 0 && d <= 7;
+    }).length;
+  }, [tenders, nowMs]);
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
@@ -145,7 +155,7 @@ export default function PublicTendersClient({
       `}</style>
 
       {/* ══ UTILITY BAR — fixed top, z-50 ══ */}
-      <div className="bg-[#071220] border-b border-white/[0.06] text-[11.5px] fixed top-0 left-0 right-0 z-50">
+      <div className="bg-[#071220] border-b border-white/6 text-[11.5px] fixed top-0 left-0 right-0 z-50">
         <div className="max-w-7xl mx-auto px-8 h-8 flex items-center justify-between">
           <div className="hidden md:flex items-center gap-6 text-white/35">
             <a href={`tel:${t("util_bar.phone")}`}
@@ -184,8 +194,8 @@ export default function PublicTendersClient({
       ══════════════════════════════════════ */}
       <section className="relative bg-[#0A1628] pt-40 pb-20 overflow-hidden">
         <div className="absolute inset-0 grid-texture pointer-events-none" />
-        <div className="absolute top-0 right-0 w-1/3 h-full bg-gradient-to-bl from-[#E85D1A]/10 via-transparent to-transparent pointer-events-none" />
-        <div className="absolute right-0 top-0 bottom-0 w-px bg-gradient-to-b from-transparent via-[#E85D1A]/40 to-transparent" />
+        <div className="absolute top-0 right-0 w-1/3 h-full bg-linear-to-bl from-[#E85D1A]/10 via-transparent to-transparent pointer-events-none" />
+        <div className="absolute right-0 top-0 bottom-0 w-px bg-linear-to-b from-transparent via-[#E85D1A]/40 to-transparent" />
 
         <div className="relative max-w-7xl mx-auto px-5">
           <div className="flex items-start justify-between gap-8 flex-wrap mb-14">
@@ -208,7 +218,7 @@ export default function PublicTendersClient({
                 { val: urgentCount,    labelKey: "tenders.closingSoon",  border: "border-red-500/30"   },
               ].map(s => (
                 <div key={s.labelKey}
-                  className={`bg-white/[0.04] border ${s.border} rounded-2xl px-6 py-4 text-center min-w-[110px]`}>
+                  className={`bg-white/4 border ${s.border} rounded-2xl px-6 py-4 text-center min-w-[110px]`}>
                   <p className={`text-3xl font-black ${s.labelKey.includes("closing") && urgentCount > 0 ? "text-red-400" : "text-white"}`}>
                     {s.val}
                   </p>
@@ -226,13 +236,13 @@ export default function PublicTendersClient({
               <Search size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/25" />
               <input value={search} onChange={e => setSearch(e.target.value)}
                 placeholder={t("tenders.searchPlaceholder")}
-                className={`w-full bg-white/[0.06] border border-white/[0.1] text-white placeholder:text-white/25 pl-10 pr-4 py-3 rounded-xl text-sm focus:outline-none focus:border-[#E85D1A]/50 transition-colors ${am}`} />
+                className={`w-full bg-white/6 border border-white/10 text-white placeholder:text-white/25 pl-10 pr-4 py-3 rounded-xl text-sm focus:outline-none focus:border-[#E85D1A]/50 transition-colors ${am}`} />
             </div>
 
             <div className="relative">
               <Filter size={11} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none" />
               <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)}
-                className="appearance-none bg-white/[0.06] border border-white/[0.1] text-white/60 pl-8 pr-8 py-3 rounded-xl text-xs font-black focus:outline-none focus:border-[#E85D1A]/50 transition-colors">
+                className="appearance-none bg-white/6 border border-white/10 text-white/60 pl-8 pr-8 py-3 rounded-xl text-xs font-black focus:outline-none focus:border-[#E85D1A]/50 transition-colors">
                 {projectTypes.map(o => (
                   <option key={o} value={o} className="bg-[#0A1628]">
                     {o === "All" ? t("tenders.allTypes") : o}
@@ -245,7 +255,7 @@ export default function PublicTendersClient({
             <div className="relative">
               <MapPin size={11} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none" />
               <select value={woredaFilter} onChange={e => setWoredaFilter(e.target.value)}
-                className="appearance-none bg-white/[0.06] border border-white/[0.1] text-white/60 pl-8 pr-8 py-3 rounded-xl text-xs font-black focus:outline-none focus:border-[#E85D1A]/50 transition-colors">
+                className="appearance-none bg-white/6 border border-white/10 text-white/60 pl-8 pr-8 py-3 rounded-xl text-xs font-black focus:outline-none focus:border-[#E85D1A]/50 transition-colors">
                 {woredas.map(o => (
                   <option key={o} value={o} className="bg-[#0A1628]">
                     {o === "All" ? t("tenders.allWoredas") : o}
@@ -283,7 +293,10 @@ export default function PublicTendersClient({
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
               {filtered.map(tn => {
                 const deadline   = tn.submission_deadline ? new Date(tn.submission_deadline) : null;
-                const days       = deadline ? Math.ceil((deadline.getTime() - Date.now()) / 86_400_000) : null;
+                const days       =
+                  deadline && nowMs != null
+                    ? Math.ceil((deadline.getTime() - nowMs) / 86_400_000)
+                    : null;
                 const closed     = days !== null && days < 0;
                 const urgent     = days !== null && !closed && days <= 7;
                 const docs       = Array.isArray(tn.required_documents) ? tn.required_documents : [];
@@ -292,7 +305,7 @@ export default function PublicTendersClient({
 
                 return (
                   <div key={tn.tender_id}
-                    className={`bg-white border flex flex-col overflow-hidden rounded-[1.5rem] shadow-sm transition-all hover:shadow-xl hover:-translate-y-0.5 ${
+                    className={`bg-white border flex flex-col overflow-hidden rounded-3xl shadow-sm transition-all hover:shadow-xl hover:-translate-y-0.5 ${
                       urgent ? "border-red-300 hover:border-red-400" : "border-slate-200 hover:border-[#E85D1A]/30"
                     }`}>
 
@@ -421,7 +434,7 @@ export default function PublicTendersClient({
       {/* ══════════════════════════════════════
           HOW TO PARTICIPATE — dark section
       ══════════════════════════════════════ */}
-      <section className="bg-[#0A1628] border-t border-white/[0.06] py-20 px-8">
+      <section className="bg-[#0A1628] border-t border-white/6 py-20 px-8">
         <div className="max-w-7xl mx-auto">
           <p className={`text-[10px] font-black uppercase tracking-[0.5em] text-[#E85D1A] mb-4 ${am}`}>
             {t("tenders.howToParticipate")}
@@ -436,7 +449,7 @@ export default function PublicTendersClient({
               { n: "03", title: t("tenders.step3Title"), body: t("tenders.step3Body") },
               { n: "04", title: t("tenders.step4Title"), body: t("tenders.step4Body") },
             ].map(s => (
-              <div key={s.n} className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-6 hover:border-[#E85D1A]/20 transition-colors">
+              <div key={s.n} className="bg-white/3 border border-white/6 rounded-2xl p-6 hover:border-[#E85D1A]/20 transition-colors">
                 <span className="text-[#E85D1A] text-2xl font-black block mb-3">{s.n}</span>
                 <h3 className={`text-white font-black text-sm mb-2 uppercase tracking-tight ${am}`}>
                   {s.title}
@@ -451,7 +464,7 @@ export default function PublicTendersClient({
       </section>
 
       {/* ══ FOOTER BAND — matches PublicProjectsClient exactly ══ */}
-      <div className="bg-[#0A1628] border-t border-white/[0.06] py-8">
+      <div className="bg-[#0A1628] border-t border-white/6 py-8">
         <div className="max-w-7xl mx-auto px-8 flex flex-col md:flex-row items-center justify-between gap-4">
           <p className={`text-white/30 text-[11px] ${am}`}>
             {t("common.officeTitle")}

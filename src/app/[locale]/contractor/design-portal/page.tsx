@@ -1,19 +1,45 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { HardHat, FileUp, Clock, CheckCircle2, AlertCircle } from "lucide-react";
+import { HardHat, FileUp, Clock, CheckCircle2 } from "lucide-react";
 import { createClient } from "@/lib/actions/supabase/clients";
 import Link from "next/link";
 
+// 1. Define the interfaces
+interface DesignSubmission {
+  status: string;
+}
+
+interface ProjectTender {
+  title: string;
+}
+
+interface ContractorProject {
+  id: string;
+  name: string;
+  status: string;
+  budget: number | null;
+  tenders: ProjectTender | ProjectTender[] | null;
+  design_submissions: DesignSubmission[] | null;
+}
+
+// 2. Define Stat Props
+interface StatProps {
+  icon: React.ReactNode;
+  label: string;
+  value: string | number;
+}
+
 export default function ContractorDashboard() {
   const supabase = createClient();
-  const [myProjects, setMyProjects] = useState<any[]>([]);
+  // Use the interface instead of any[]
+  const [myProjects, setMyProjects] = useState<ContractorProject[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchMyProjects = async () => {
-      // Logic: Get the logged-in contractor's ID (Assuming session management is set)
       const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
       
       const { data, error } = await supabase
         .from('projects')
@@ -22,14 +48,22 @@ export default function ContractorDashboard() {
           tenders ( title ),
           design_submissions ( status )
         `)
-        .eq('contractor_id', user?.id) // Filtered forensic view
+        .eq('contractor_id', user.id)
         .order('created_at', { ascending: false });
 
-      if (data) setMyProjects(data);
+      if (error) {
+        console.error("Fetch error:", error);
+      } else {
+        // Use 'unknown' bridge to cast to our interface
+        setMyProjects((data as unknown as ContractorProject[]) || []);
+      }
       setLoading(false);
     };
+    
     fetchMyProjects();
-  }, []);
+  }, [supabase.auth]);
+
+  if (loading) return <div className="p-16 text-center font-black uppercase text-slate-400">Loading Contracts...</div>;
 
   return (
     <div className="min-h-screen bg-slate-50 p-8 md:p-16">
@@ -78,7 +112,8 @@ export default function ContractorDashboard() {
   );
 }
 
-function Stat({ icon, label, value }: any) {
+// Fixed the 'any' here by using the StatProps interface
+function Stat({ icon, label, value }: StatProps) {
   return (
     <div>
       <p className="text-[8px] font-black text-slate-400 uppercase mb-1">{label}</p>

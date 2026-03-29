@@ -34,7 +34,7 @@ export default async function TendersPage({
     publication_date: string | null;
   };
 
-  const tenders = (error ? [] : (data ?? [])) as TenderRow[];
+  const tenders = (error ? [] : (data ?? [])) as unknown as TenderRow[];
 
   return <PublicTendersClient locale={locale} tenders={tenders} />;
 }

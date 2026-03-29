@@ -6,7 +6,7 @@ import { createClient } from "@/lib/actions/supabase/server";
 import { getTranslations } from "next-intl/server";
 import { notFound } from "next/navigation";
 import { EditProjectForm } from "@/components/admin/EditProjectForm";
-import { DeleteDocumentButton } from "@/components/project/DeleteDocumentButton";
+import { DeleteDocumentButton } from "@/components/project/DeleteDocument";
 import { FileUploadWrapper } from "@/components/project/FileUploadWrapper";
 import { ShieldAlert, ArrowLeft, FileText } from "lucide-react";
 import Link from "next/link";

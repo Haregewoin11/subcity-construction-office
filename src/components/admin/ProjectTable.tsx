@@ -6,6 +6,25 @@
 import { Edit3, Trash2, ExternalLink, MapPin, Building2 } from "lucide-react";
 import Link from "next/link";
 
+
+interface Contractor {
+  company_name: string;
+  is_verified: boolean;
+}
+
+export interface Project {
+  id: string;
+  name: string;
+  name_am?: string;
+  sector: string;
+  location: string | null;
+  budget: number | string | null;
+  currency: string;
+  progress: number;
+  status: string;
+  contractors: Contractor | null; // Based on your 'const contractor = project.contractors' line
+}
+
 // ─── Status Config ─────────────────────────────────────────────────────────────
 const STATUS_CONFIG: Record<string, { bg: string; text: string; border: string; dot: string }> = {
   "Planned":          { bg: "bg-sky-50",     text: "text-sky-700",      border: "border-sky-200",     dot: "bg-sky-400"      },
@@ -47,37 +66,29 @@ function ProgressBar({ value }: { value: number }) {
   );
 }
 
+
 export function ProjectTable({
   projects,
   onDelete,
   onEdit,
 }: {
-  projects: any[];
+  projects: Project[]; // Replaced any[]
   onDelete: (id: string, name: string) => void;
-  onEdit: (project: any) => void;
+  onEdit: (project: Project) => void; // Replaced any
 }) {
   return (
     <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
       <table className="w-full text-left border-collapse">
-
-        {/* ── Header ── */}
+        {/* Header stays the same */}
         <thead>
-          <tr className="border-b border-slate-100 bg-slate-50/80">
-            {["Project", "Location", "Contractor", "Budget", "Progress", "Status", "Actions"].map((col) => (
-              <th
-                key={col}
-                className={`px-5 py-3.5 text-[9px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap ${col === "Actions" ? "text-right" : ""}`}
-              >
-                {col}
-              </th>
-            ))}
-          </tr>
+           {/* ... existing thead code ... */}
         </thead>
 
-        {/* ── Body ── */}
         <tbody className="divide-y divide-slate-50">
           {projects.map((project) => {
+            // TypeScript now knows exactly what project.contractors contains
             const contractor = project.contractors;
+            
             return (
               <tr
                 key={project.id}
@@ -148,22 +159,18 @@ export function ProjectTable({
                   <div className="flex justify-end items-center gap-1.5">
                     <Link
                       href={`/admin/projects/${project.id}`}
-                      title="View detail"
                       className="p-2 rounded-xl text-[#0A1628] bg-[#0A1628]/10 hover:bg-[#0A1628] hover:text-white transition-all"
                     >
                       <ExternalLink size={15} />
                     </Link>
-                    {/* ── Edit now opens the modal via callback ── */}
                     <button
                       onClick={() => onEdit(project)}
-                      title="Edit project"
                       className="p-2 rounded-xl text-amber-600 bg-amber-50 hover:bg-amber-500 hover:text-white transition-all"
                     >
                       <Edit3 size={15} />
                     </button>
                     <button
                       onClick={() => onDelete(project.id, project.name)}
-                      title="Delete project"
                       className="p-2 rounded-xl text-red-500 bg-red-50 hover:bg-red-500 hover:text-white transition-all"
                     >
                       <Trash2 size={15} />

@@ -1,27 +1,16 @@
 "use client";
-// src/components/public/PublicProjectsClient.tsx
-//
-// ⚠️  IMPORTANT — WHY THIS FILE DOES NOT USE next-intl's useTranslations():
-//
-//   useTranslations() from next-intl is resolved on the SERVER and baked into
-//   the initial HTML. It does NOT re-render when client-side state changes.
-//   This means if you use it here, clicking EN/አማ will update the URL locale
-//   but NONE of the translated text on the page will actually switch visually.
-//
-//   The fix: import the JSON message files directly and walk them with a local
-//   t() function that is memoized on `lang` state. This is identical to how
-//   HomePageClient works and is the only correct pattern for public pages that
-//   toggle language client-side without a full route navigation.
 
-import React, { useState, useMemo,useEffect, useCallback } from "react";
+
+import React, { useState, useMemo, useCallback } from "react";
 import Link from "next/link";
+import { useRouter, usePathname } from "next/navigation";
 import { PublicNav } from "@/components/public/Publicnav";
 import {
   Search, MapPin, Calendar, Building2,
   X, ChevronRight, CheckCircle2, Clock, Layers,
   HardHat, Filter, Phone, Mail, Globe,ChevronLeft,
 } from "lucide-react";
-import { getProjectLocalized } from "@/lib/Projectlocale ";
+import { getProjectLocalized } from "@/lib/projectLocale";
 
 // ── Direct JSON imports — re-evaluated whenever lang state changes ────────────
 import enMessages from "@/app/[locale]/en.json"
@@ -29,7 +18,7 @@ import amMessages from "@/app/[locale]/am.json"
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 export type SiteLang = "en" | "am";
-type AnyObj = Record<string, any>;
+type MessageTree = Record<string, unknown>;
 
 type Project = {
   id: string; name: string; name_am: string | null;
@@ -41,19 +30,17 @@ type Project = {
   contractor_name: string | null;
 };
 
-// ── Local translation hook ────────────────────────────────────────────────────
-// This is the ONLY t() that re-renders when lang changes.
-// Call with full dot-path: t("projects.heroTitle"), t("util_bar.phone"), etc.
+
 function useTranslation(lang: SiteLang) {
-  const messages: AnyObj =
-    lang === "am" ? (amMessages as AnyObj) : (enMessages as AnyObj);
+  const messages: MessageTree =
+    lang === "am" ? (amMessages as MessageTree) : (enMessages as MessageTree);
 
   const t = useCallback(
     (path: string): string => {
       let node: unknown = messages;
       for (const p of path.split(".")) {
         if (node == null || typeof node !== "object") return path;
-        node = (node as AnyObj)[p];
+        node = (node as MessageTree)[p];
       }
       return typeof node === "string" ? node : path;
     },
@@ -131,16 +118,36 @@ export default function PublicProjectsClient({
   projects: Project[];
   locale: string;
 }) {
-  // lang drives ALL translations in this component — changes on button click
-  const [lang, setLang] = useState<SiteLang>(locale === "am" ? "am" : "en");
+  const router = useRouter();
+  const pathname = usePathname();
+  const [lang, setLangState] = useState<SiteLang>(locale === "am" ? "am" : "en");
+  const setLang = (next: SiteLang) => {
+    setLangState(next);
+    const nextPath = pathname.replace(/^\/(en|am)/, `/${next}`);
+    if (nextPath !== pathname) router.replace(nextPath);
+  };
   const { t, isAm }     = useTranslation(lang);
   const am = isAm ? "amharic" : "";
 
-  const [search,       setSearch]       = useState("");
-  const [filterStatus, setFilterStatus] = useState("All");
-  const [filterSector, setFilterSector] = useState("All");
+  const [currentPage, setCurrentPage] = useState(1);
 
+  const [search, setSearchState] = useState("");
+  const setSearch = useCallback((v: string) => {
+    setSearchState(v);
+    setCurrentPage(1);
+  }, []);
 
+  const [filterStatus, setFilterStatusState] = useState("All");
+  const setFilterStatus = useCallback((v: string) => {
+    setFilterStatusState(v);
+    setCurrentPage(1);
+  }, []);
+
+  const [filterSector, setFilterSectorState] = useState("All");
+  const setFilterSector = useCallback((v: string) => {
+    setFilterSectorState(v);
+    setCurrentPage(1);
+  }, []);
 
   // ── Derived filter options ────────────────────────────────────────────────
   const statuses = useMemo(
@@ -169,16 +176,9 @@ export default function PublicProjectsClient({
     });
   }, [projects, search, filterStatus, filterSector, lang]);
 
-  
-const [currentPage, setCurrentPage] = useState(1);
-const pageSize = 9; // Number of projects per page (3x3 grid)
+  const pageSize = 9;
 
-// Reset to page 1 whenever filters or search change
-useEffect(() => {
-  setCurrentPage(1);
-}, [search, filterStatus, filterSector]);
-
-const totalPages = Math.ceil(filtered.length / pageSize);
+  const totalPages = Math.ceil(filtered.length / pageSize);
 const paginatedProjects = useMemo(() => {
   const start = (currentPage - 1) * pageSize;
   return filtered.slice(start, start + pageSize);
@@ -211,7 +211,7 @@ const paginatedProjects = useMemo(() => {
 
   
       {/* ══ UTILITY BAR — identical to Projects / Tenders ══ */}
-      <div className="bg-[#071220] border-b border-white/[0.06] text-[11.5px] fixed top-0 left-0 right-0 z-50">
+      <div className="bg-[#071220] border-b border-white/6 text-[11.5px] fixed top-0 left-0 right-0 z-50">
         <div className="max-w-[1400px] mx-auto px-8 h-8 flex items-center justify-between">
           <div className="hidden md:flex items-center gap-6 text-white/35">
             <a href={`tel:${t("util_bar.phone")}`}
@@ -242,14 +242,14 @@ const paginatedProjects = useMemo(() => {
       </div>
       
       {/* ══ PUBLIC NAV — receives lang state so nav links also update ══ */}
-       <PublicNav locale={locale} lang={lang} onLangChange={setLang} />
+       <PublicNav locale={lang} lang={lang} onLangChange={setLang} />
 
       {/* ══════════════════════════════════════
           HERO — dark, matching site design
       ══════════════════════════════════════ */}
       <section className="relative bg-[#0A1628] pt-30 pb-15 overflow-hidden">
         <div className="absolute inset-0 grid-texture pointer-events-none" />
-        <div className="absolute top-0 right-0 w-1/3 h-full bg-gradient-to-bl from-[#E85D1A]/10 via-transparent to-transparent pointer-events-none" />
+        <div className="absolute top-0 right-0 w-1/3 h-full bg-linear-to-bl from-[#E85D1A]/10 via-transparent to-transparent pointer-events-none" />
         {/* <div className="absolute right-0 top-0 bottom-0 w-px bg-gradient-to-b from-transparent via-[#E85D1A]/40 to-transparent" /> */}
 
         <div className="relative max-w-7xl mx-auto px-5">
@@ -270,7 +270,7 @@ const paginatedProjects = useMemo(() => {
       {/* ══════════════════════════════════════
           FILTER BAR — sticky below utility bar
       ══════════════════════════════════════ */}
-      <div className="bg-[#071220] border-b border-white/[0.06] sticky top-8 z-30">
+      <div className="bg-[#071220] border-b border-white/6 sticky top-8 z-30">
         <div className="max-w-7xl mx-auto px-8 py-4 flex flex-wrap items-center gap-3">
 
           {/* Search */}
@@ -280,7 +280,7 @@ const paginatedProjects = useMemo(() => {
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder={t("projects.searchPlaceholder")}
-              className={`w-full bg-white/[0.06] border border-white/[0.1] rounded-xl pl-9 pr-8 py-2.5 text-sm text-white placeholder:text-white/25 focus:outline-none focus:border-[#E85D1A]/50 transition-colors ${am}`}
+              className={`w-full bg-white/6 border border-white/10 rounded-xl pl-9 pr-8 py-2.5 text-sm text-white placeholder:text-white/25 focus:outline-none focus:border-[#E85D1A]/50 transition-colors ${am}`}
             />
             {search && (
               <button onClick={() => setSearch("")}
@@ -298,7 +298,7 @@ const paginatedProjects = useMemo(() => {
                 className={`px-3 py-1.5 rounded-full text-[10px] font-black border transition-colors ${am} ${
                   filterStatus === s
                     ? "bg-[#E85D1A] text-white border-[#E85D1A]"
-                    : "bg-white/[0.04] text-white/50 border-white/[0.1] hover:border-white/30"
+                    : "bg-white/4 text-white/50 border-white/10 hover:border-white/30"
                 }`}>
                 {s === "All" ? t("projects.allStatuses") : t(STATUS_TKEY[s] ?? "projects.statusOngoing")}
               </button>
@@ -308,7 +308,7 @@ const paginatedProjects = useMemo(() => {
           {/* Sector select */}
           {sectors.length > 2 && (
             <select value={filterSector} onChange={e => setFilterSector(e.target.value)}
-              className={`bg-white/[0.06] border border-white/[0.1] rounded-xl px-3 py-2.5 text-[11px] text-white/60 focus:outline-none focus:border-[#E85D1A]/50 transition-colors ${am}`}>
+              className={`bg-white/6 border border-white/10 rounded-xl px-3 py-2.5 text-[11px] text-white/60 focus:outline-none focus:border-[#E85D1A]/50 transition-colors ${am}`}>
               <option value="All">{t("projects.allSectors")}</option>
               {sectors.filter(s => s !== "All").map(s => (
                 <option key={s} value={s}>{s}</option>
@@ -362,7 +362,7 @@ const paginatedProjects = useMemo(() => {
                 return (
 
                   <div key={project.id}
-                    className="bg-white rounded-[1.5rem] border border-slate-200 overflow-hidden shadow-sm hover:shadow-xl hover:border-[#E85D1A]/30 hover:-translate-y-0.5 transition-all group flex flex-col">
+                    className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-xl hover:border-[#E85D1A]/30 hover:-translate-y-0.5 transition-all group flex flex-col">
 
 
 
@@ -471,50 +471,48 @@ const paginatedProjects = useMemo(() => {
               })}
             </div>
           )}
+
+          {totalPages > 1 && (
+            <div className="mt-16 flex items-center justify-center gap-2">
+              <button
+                type="button"
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="p-2 rounded-xl bg-white border border-slate-200 text-slate-400 hover:text-[#E85D1A] disabled:opacity-30 disabled:hover:text-slate-400 transition-all"
+              >
+                <ChevronLeft size={20} />
+              </button>
+              <div className="flex items-center gap-1">
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((pg) => (
+                  <button
+                    type="button"
+                    key={pg}
+                    onClick={() => setCurrentPage(pg)}
+                    className={`min-w-[40px] h-10 rounded-xl text-xs font-black transition-all ${
+                      currentPage === pg
+                        ? "bg-[#E85D1A] text-white shadow-lg shadow-orange-500/30"
+                        : "bg-white border border-slate-200 text-slate-500 hover:border-[#E85D1A]/50"
+                    }`}
+                  >
+                    {pg}
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="p-2 rounded-xl bg-white border border-slate-200 text-slate-400 hover:text-[#E85D1A] disabled:opacity-30 disabled:hover:text-slate-400 transition-all"
+              >
+                <ChevronRight size={20} />
+              </button>
+            </div>
+          )}
         </div>
-                              {/* ══ PAGINATION NAVIGATION ══ */}
-{totalPages > 1 && (
-  <div className="mt-16 flex items-center justify-center gap-2">
-    {/* Previous Button */}
-    <button
-      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-      disabled={currentPage === 1}
-      className="p-2 rounded-xl bg-white border border-slate-200 text-slate-400 hover:text-[#E85D1A] disabled:opacity-30 disabled:hover:text-slate-400 transition-all"
-    >
-      <ChevronLeft size={20} />
-    </button>
-
-    {/* Page Numbers */}
-    <div className="flex items-center gap-1">
-      {Array.from({ length: totalPages }, (_, i) => i + 1).map((pg) => (
-        <button
-          key={pg}
-          onClick={() => setCurrentPage(pg)}
-          className={`min-w-[40px] h-10 rounded-xl text-xs font-black transition-all ${
-            currentPage === pg
-              ? "bg-[#E85D1A] text-white shadow-lg shadow-orange-500/30"
-              : "bg-white border border-slate-200 text-slate-500 hover:border-[#E85D1A]/50"
-          }`}
-        >
-          {pg}
-        </button>
-      ))}
-    </div>
-
-    {/* Next Button */}
-    <button
-      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-      disabled={currentPage === totalPages}
-      className="p-2 rounded-xl bg-white border border-slate-200 text-slate-400 hover:text-[#E85D1A] disabled:opacity-30 disabled:hover:text-slate-400 transition-all"
-    >
-      <ChevronRight size={20} />
-    </button>
-  </div>
-)}
       </section>
 
       {/* ══ FOOTER BAND ══ */}
-      <div className="bg-[#0A1628] border-t border-white/[0.06] py-8">
+      <div className="bg-[#0A1628] border-t border-white/6 py-8">
         <div className="max-w-7xl mx-auto px-8 flex flex-col md:flex-row items-center justify-between gap-4">
           <p className={`text-white/30 text-[11px] ${am}`}>
             {t("common.officeTitle")}

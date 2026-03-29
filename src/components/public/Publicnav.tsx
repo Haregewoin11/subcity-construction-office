@@ -11,24 +11,23 @@
 // URL sync: handleLang → router.replace(/en|am/ → next) so the next page
 // mount initialises from the correct URL locale. Language persists across navigation.
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { Menu, X, Globe } from "lucide-react";
+import { usePathname } from "next/navigation";
+import { Menu, X } from "lucide-react";
 import Image from "next/image";
 
 // ── Module-level JSON imports — like admin's module-level supabase client ─────
 // Imported once, stable reference, no recreation on render
 import enMessages from "@/app/[locale]/en.json";
 import amMessages from "@/app/[locale]/am.json";
-import { createClient } from '../../lib/actions/supabase/clients';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 export type SiteLang = "en" | "am";
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyObj = Record<string, any>;
 
-// ── Module-level nav config — like admin's module-level constants ─────────────
-// Outside the component: new array is NOT created on every render
+
 const NAV_ITEMS = [
   { key: "nav.home",     href: "/"         },
   { key: "nav.about",    href: "/about"    },
@@ -42,8 +41,6 @@ const NAV_ITEMS = [
 // Admin has no hook (English-only). Public needs one that re-renders on lang change.
 // useCallback([lang]) ensures t() is recreated only when lang changes — not every render.
 function useTranslation(lang: SiteLang) {
-
-
   const messages: AnyObj =
     lang === "am" ? (amMessages as AnyObj) : (enMessages as AnyObj);
 
@@ -60,8 +57,6 @@ function useTranslation(lang: SiteLang) {
     [lang] // only recreate when lang changes — same stability principle as admin's module-level client
   );
 
-  
-
   return t;
 }
 
@@ -69,18 +64,16 @@ function useTranslation(lang: SiteLang) {
 export function PublicNav({
   locale,
   lang: langProp,
-  onLangChange,
 }: {
   locale: string;        // current URL locale — used for link hrefs
   lang?: SiteLang;       // controlled by parent when parent manages lang state
   onLangChange?: (l: SiteLang) => void; // parent's setLang — called on toggle
 }) {
-  const router   = useRouter();
   const pathname = usePathname();
 
   // Own lang state — used when parent doesn't pass langProp (standalone usage)
   // Initialized from locale so fresh page load shows the correct language
-  const [ownLang, setOwnLang] = useState<SiteLang>(locale === "am" ? "am" : "en");
+  const [ownLang] = useState<SiteLang>(locale === "am" ? "am" : "en");
   const [mobileOpen, setMobileOpen] = useState(false);
 
   // Use parent's lang if provided, otherwise own state
@@ -93,33 +86,16 @@ export function PublicNav({
   //   1. Own state updates (for standalone usage)
   //   2. Parent state updates via onLangChange (for controlled usage)
   //   3. URL locale prefix swaps — so the NEXT page mount reads correct locale
-  const handleLang = (next: SiteLang) => {
-    setOwnLang(next);
-    onLangChange?.(next);
-    const newPath = pathname.replace(/^\/(en|am)/, `/${next}`);
-    if (newPath !== pathname) router.replace(newPath);
-  };
 
   const isActive = (href: string) =>
     href === "/"
       ? pathname === `/${locale}` || pathname === `/${locale}/`
       : pathname.includes(href);
 
-  const [user, setUser] = useState<any>(null);
-  const supabase = createClient();
-
-  useEffect(() => {
-    const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setUser(user);
-    };
-    getUser();
-  }, []);
-
   return (
     // top-8 → nav sits directly below the 32px utility bar (fixed top-0 h-8)
     // z-40 → below utility bar's z-50 but above page content
-    <nav className="fixed top-8 left-0 right-0 z-40 bg-[#0A1628]/96 backdrop-blur-md border-b border-white/[0.08]">
+    <nav className="fixed top-8 left-0 right-0 z-40 bg-[#0A1628]/96 backdrop-blur-md border-b border-white/8">
       <div className="max-w-[1400px] mx-auto px-8">
         <div className="flex items-center justify-between h-16 gap-4">
 
@@ -156,7 +132,7 @@ export function PublicNav({
                 className={`px-4 py-2 text-[11px] font-black uppercase tracking-wider transition-all ${amCls} ${
                   isActive(item.href)
                     ? "bg-[#E85D1A] text-white"
-                    : "text-white/55 hover:text-white hover:bg-white/[0.08]"
+                    : "text-white/55 hover:text-white hover:bg-white/8"
                 }`}
               >
                 {t(item.key)}
@@ -168,7 +144,7 @@ export function PublicNav({
           <div className="flex items-center gap-3 shrink-0">
 
             {/* Language toggle — the only interactive element that changes language */}
-            <button
+            {/* <button
               type="button"
               onClick={() => handleLang(lang === "en" ? "am" : "en")}
               className="flex items-center gap-1.5 px-3 py-2 bg-white/[0.08] hover:bg-white/[0.15]
@@ -178,29 +154,23 @@ export function PublicNav({
             >
               <Globe size={11} />
               {lang === "en" ? "አማ" : "EN"}
-            </button>
+            </button> */}
 
             {/* Admin portal link — desktop */}
-            {/* <Link
-              href={`/${locale}/admin`}
+            <Link
+              href={`/${locale}/admin/login`}
               className={`hidden md:flex items-center px-3 py-2 bg-[#E85D1A]/10 hover:bg-[#E85D1A]/20
                           border border-[#E85D1A]/25 text-[#E85D1A] text-[10px] font-black
                           uppercase tracking-widest transition-all ${amCls}`}
             >
               {t("nav.login")}
-            </Link> */}
-            <Link
-             href={user ? `/${locale}/admin` : `/${locale}/login`} // Change /admin to /login
-            className={`hidden md:flex items-center px-3 py-2 ...`}
-    >
-            {user ? t("nav.dashboard") : t("nav.login")}
-           </Link>
+            </Link>
 
             {/* Mobile hamburger — opens/closes drawer */}
             <button
               type="button"
               onClick={() => setMobileOpen(v => !v)}
-              className="md:hidden p-2 text-white/60 hover:text-white hover:bg-white/[0.10] transition-all"
+              className="md:hidden p-2 text-white/60 hover:text-white hover:bg-white/10 transition-all"
               aria-label={mobileOpen ? "Close menu" : "Open menu"}
             >
               {mobileOpen ? <X size={20} /> : <Menu size={20} />}
@@ -210,7 +180,7 @@ export function PublicNav({
 
         {/* ── Mobile drawer ── */}
         {mobileOpen && (
-          <div className="md:hidden border-t border-white/[0.08] py-4 space-y-1 pb-6">
+          <div className="md:hidden border-t border-white/8 py-4 space-y-1 pb-6">
             {NAV_ITEMS.map(item => (
               <Link
                 key={item.href}
@@ -219,15 +189,15 @@ export function PublicNav({
                 className={`block px-4 py-3 text-sm font-black uppercase tracking-wide transition-all ${amCls} ${
                   isActive(item.href)
                     ? "bg-[#E85D1A] text-white"
-                    : "text-white/55 hover:text-white hover:bg-white/[0.08]"
+                    : "text-white/55 hover:text-white hover:bg-white/8"
                 }`}
               >
                 {t(item.key)}
               </Link>
             ))}
-            <div className="pt-3 border-t border-white/[0.08] mt-3">
+            <div className="pt-3 border-t border-white/8 mt-3">
               <Link
-                href={`/${locale}/admin`}
+                href={`/${locale}/admin/login`}
                 onClick={() => setMobileOpen(false)}
                 className={`block px-4 py-3 text-sm font-black uppercase tracking-wide
                             text-[#E85D1A] bg-[#E85D1A]/10 hover:bg-[#E85D1A]/20 transition-all ${amCls}`}

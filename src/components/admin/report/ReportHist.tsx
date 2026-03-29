@@ -1,15 +1,16 @@
 "use client";
 // src/components/admin/report/ReportHist.tsx
 
-import React, { useEffect, useState, useCallback, useRef } from "react";
+import React, { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import {
   CalendarDays, Cloud, Sun, CloudRain, Wind, Thermometer,
   ShieldCheck, ShieldAlert, ChevronDown, ChevronUp,
   Clock, User, FileText, RefreshCw, Inbox, AlertTriangle,
 } from "lucide-react";
-import { createClient } from "@/lib/actions/supabase/clients";
+import { useAuth } from "@/context/Authcontext";
 
+// ── Types ─────────────────────────────────────────────────────────────────────
 type Report = {
   id: string; report_date: string; weather: string | null;
   temperature: number | null; shift: string | null;
@@ -19,6 +20,7 @@ type Report = {
   supervisor_name: string | null; status: string; created_at: string;
 };
 
+// ── Static lookup maps ────────────────────────────────────────────────────────
 const WEATHER_ICON: Record<string, React.ReactNode> = {
   Sunny:  <Sun size={14} className="text-amber-500" />,
   Cloudy: <Cloud size={14} className="text-slate-400" />,
@@ -26,48 +28,70 @@ const WEATHER_ICON: Record<string, React.ReactNode> = {
   Windy:  <Wind size={14} className="text-cyan-500" />,
 };
 
-// Severity display — colour only, label comes from t()
 const SEVERITY_CSS: Record<string, { bg: string; text: string }> = {
   Low:      { bg: "bg-emerald-100", text: "text-emerald-700" },
   Medium:   { bg: "bg-amber-100",   text: "text-amber-700"   },
   High:     { bg: "bg-orange-100",  text: "text-orange-700"  },
   Critical: { bg: "bg-red-100",     text: "text-red-700"     },
 };
+
 const SEVERITY_KEY: Record<string, string> = {
   Low: "severity_low", Medium: "severity_medium",
   High: "severity_high", Critical: "severity_critical",
 };
+
 const STATUS_CSS: Record<string, string> = {
   Approved: "bg-emerald-100 text-emerald-700",
   Rejected: "bg-red-100 text-red-700",
 };
+
 const STATUS_KEY: Record<string, string> = {
   Submitted: "status_submitted",
   Approved:  "status_approved",
   Rejected:  "status_rejected",
 };
 
+// ── Component ─────────────────────────────────────────────────────────────────
 export default function ReportHistory({ projectId }: { projectId: string }) {
-  const t        = useTranslations("Admin.daily_reports");
-  const supabase = useRef(createClient()).current;
+  const t              = useTranslations("Admin.daily_reports");
+  const { supabase }   = useAuth();
 
   const [reports,  setReports]  = useState<Report[]>([]);
   const [loading,  setLoading]  = useState(true);
   const [expanded, setExpanded] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    const { data } = await supabase
-      .from("daily_reports")
-      .select("id, report_date, weather, temperature, shift, cumulative_progress_pct, work_description, issues_description, issue_severity, action_taken, safety_compliance, supervisor_name, status, created_at")
-      .eq("project_id", projectId)
-      .order("report_date", { ascending: false });
-    setReports(data || []);
-    setLoading(false);
-  }, [projectId]);
+  // ── tick: incrementing this re-runs the effect (used by refresh button) ───
+  const [tick, setTick] = useState(0);
+  const refresh = () => setTick(t => t + 1);
 
-  useEffect(() => { load(); }, [load]);
+  // ── Data fetch — inlined so ESLint can see the setState calls ─────────────
+  useEffect(() => {
+    let cancelled = false;
 
+    const fetchReports = async () => {
+      setLoading(true);
+      const { data } = await supabase
+        .from("daily_reports")
+        .select(
+          "id, report_date, weather, temperature, shift, " +
+          "cumulative_progress_pct, work_description, issues_description, " +
+          "issue_severity, action_taken, safety_compliance, " +
+          "supervisor_name, status, created_at"
+        )
+        .eq("project_id", projectId)
+        .order("report_date", { ascending: false });
+
+      if (!cancelled) {
+        setReports((Array.isArray(data) ? data : []) as unknown as Report[]);
+        setLoading(false);
+      }
+    };
+
+    fetchReports();
+    return () => { cancelled = true; };
+  }, [projectId, supabase, tick]); // tick re-runs on refresh
+
+  // ── Loading skeleton ──────────────────────────────────────────────────────
   if (loading) return (
     <div className="space-y-3">
       {[...Array(4)].map((_, i) => (
@@ -76,6 +100,7 @@ export default function ReportHistory({ projectId }: { projectId: string }) {
     </div>
   );
 
+  // ── Empty state ───────────────────────────────────────────────────────────
   if (reports.length === 0) return (
     <div className="bg-white rounded-3xl border border-slate-200 p-20 text-center">
       <Inbox size={48} className="text-slate-200 mx-auto mb-4" strokeWidth={1} />
@@ -84,40 +109,46 @@ export default function ReportHistory({ projectId }: { projectId: string }) {
     </div>
   );
 
+  // ── Report list ───────────────────────────────────────────────────────────
   return (
     <div className="space-y-3">
+
       {/* Summary strip */}
       <div className="flex items-center justify-between mb-2">
         <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-          {/* count in JSX, singular/plural label from t() */}
           {reports.length}{" "}
           {reports.length === 1 ? t("reports_count_singular") : t("reports_count_plural")}
         </p>
-        <button onClick={load}
-          className="flex items-center gap-1.5 text-[10px] font-black text-slate-400 hover:text-slate-700 transition-colors">
+        <button
+          type="button"
+          onClick={refresh}
+          className="flex items-center gap-1.5 text-[10px] font-black text-slate-400 hover:text-slate-700 transition-colors"
+        >
           <RefreshCw size={12} /> {t("btn_refresh")}
         </button>
       </div>
 
       {reports.map(r => {
-        const isOpen = expanded === r.id;
-        const sev    = r.issue_severity ? SEVERITY_CSS[r.issue_severity] : null;
-        const sevKey = r.issue_severity ? SEVERITY_KEY[r.issue_severity] : null;
+        const isOpen    = expanded === r.id;
+        const sev       = r.issue_severity ? SEVERITY_CSS[r.issue_severity] : null;
+        const sevKey    = r.issue_severity ? SEVERITY_KEY[r.issue_severity] : null;
         const statusKey = STATUS_KEY[r.status] ?? "status_submitted";
-        const date   = new Date(r.report_date);
+        const date      = new Date(r.report_date);
 
         return (
-          <div key={r.id}
+          <div
+            key={r.id}
             className={`bg-white rounded-2xl border shadow-sm overflow-hidden transition-all ${
               r.issue_severity === "Critical" ? "border-red-200 shadow-red-50"
               : r.issue_severity === "High"   ? "border-orange-200"
               : "border-slate-200"
-            }`}>
-
-            {/* Row */}
-            <div className="grid grid-cols-12 items-center px-5 py-4 cursor-pointer hover:bg-slate-50/70 transition-colors gap-2"
-              onClick={() => setExpanded(isOpen ? null : r.id)}>
-
+            }`}
+          >
+            {/* Row header */}
+            <div
+              className="grid grid-cols-12 items-center px-5 py-4 cursor-pointer hover:bg-slate-50/70 transition-colors gap-2"
+              onClick={() => setExpanded(isOpen ? null : r.id)}
+            >
               {/* Date */}
               <div className="col-span-3 md:col-span-2">
                 <p className="text-xs font-black text-slate-900">
@@ -126,7 +157,7 @@ export default function ReportHistory({ projectId }: { projectId: string }) {
                 <p className="text-[10px] text-slate-400 font-bold">{date.getFullYear()}</p>
               </div>
 
-              {/* Progress */}
+              {/* Progress bar */}
               <div className="col-span-4 md:col-span-3">
                 <div className="flex justify-between mb-1">
                   <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest">
@@ -137,25 +168,27 @@ export default function ReportHistory({ projectId }: { projectId: string }) {
                   </span>
                 </div>
                 <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-orange-500 rounded-full transition-all"
-                    style={{ width: `${r.cumulative_progress_pct ?? 0}%` }} />
+                  <div
+                    className="h-full bg-orange-500 rounded-full transition-all"
+                    style={{ width: `${r.cumulative_progress_pct ?? 0}%` }}
+                  />
                 </div>
               </div>
 
-              {/* Weather + temp */}
+              {/* Weather + temperature */}
               <div className="col-span-3 md:col-span-3 flex items-center gap-3">
                 <div className="flex items-center gap-1 text-[10px] text-slate-500 font-bold">
-                  {WEATHER_ICON[r.weather || ""] || <Cloud size={14} className="text-slate-300" />}
-                  {r.weather || "—"}
+                  {WEATHER_ICON[r.weather ?? ""] ?? <Cloud size={14} className="text-slate-300" />}
+                  {r.weather ?? "—"}
                 </div>
-                {r.temperature && (
+                {r.temperature !== null && (
                   <span className="flex items-center gap-0.5 text-[9px] text-slate-400 font-bold">
                     <Thermometer size={10} /> {r.temperature}°C
                   </span>
                 )}
               </div>
 
-              {/* Badges */}
+              {/* Status badges */}
               <div className="col-span-8 md:col-span-3 flex items-center gap-2 flex-wrap">
                 {r.safety_compliance ? (
                   <span className="flex items-center gap-1 text-[9px] font-black bg-emerald-100 text-emerald-700 px-2 py-1 rounded-lg">
@@ -183,7 +216,7 @@ export default function ReportHistory({ projectId }: { projectId: string }) {
               </div>
             </div>
 
-            {/* Expanded */}
+            {/* Expanded detail */}
             {isOpen && (
               <div className="border-t border-slate-100 bg-slate-50/60 px-5 py-5 grid grid-cols-1 md:grid-cols-2 gap-6">
 
@@ -192,7 +225,7 @@ export default function ReportHistory({ projectId }: { projectId: string }) {
                     <FileText size={10} /> {t("expanded_work_title")}
                   </p>
                   <p className="text-sm text-slate-700 leading-relaxed">
-                    {r.work_description || (
+                    {r.work_description ?? (
                       <span className="text-slate-300 italic">{t("expanded_not_provided")}</span>
                     )}
                   </p>

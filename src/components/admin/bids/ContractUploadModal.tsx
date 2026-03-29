@@ -33,13 +33,13 @@ export default function ContractUploadModal({ isOpen, onClose, bidId, contractor
       const fileName = `contracts/${bidId}_${Date.now()}.${fileExt}`;
 
       // 2. Upload to Private Bucket (Audit-Safe)
-      const { data, error: uploadError } = await supabase.storage
+      const { error: uploadError } = await supabase.storage
         .from('project-documents')
         .upload(fileName, file);
 
       if (uploadError) throw uploadError;
 
-      // 3. Get Public/Signed URL
+      // 3. Get Public URL
       const { data: { publicUrl } } = supabase.storage
         .from('project-documents')
         .getPublicUrl(fileName);
@@ -62,8 +62,10 @@ export default function ContractUploadModal({ isOpen, onClose, bidId, contractor
       
       onSuccess();
       onClose();
-    } catch (err: any) {
-      toast.error("Forensic Archival Failed", { description: err.message });
+    } catch (err: unknown) {
+      // FIX: Safely handle the 'unknown' error type
+      const errorMessage = err instanceof Error ? err.message : "An unexpected archival error occurred";
+      toast.error("Forensic Archival Failed", { description: errorMessage });
     } finally {
       setUploading(false);
     }
@@ -115,7 +117,7 @@ export default function ContractUploadModal({ isOpen, onClose, bidId, contractor
           <div className="bg-orange-50 p-4 rounded-2xl flex gap-4 border border-orange-100">
             <AlertCircle className="text-orange-600 shrink-0" size={18} />
             <p className="text-[9px] font-bold text-orange-900 uppercase leading-relaxed">
-              Forensic Note: Once uploaded, this document serves as the legal source of truth for the project's financial disbursement. Ensure all signatures are legible.
+              Forensic Note: Once uploaded, this document serves as the legal source of truth for the project&#39;s financial disbursement. Ensure all signatures are legible.
             </p>
           </div>
         </div>

@@ -1,13 +1,13 @@
 "use client";
 // src/components/admin/report/ReportAnalytics.tsx
 
-import React, { useEffect, useState, useCallback, useRef } from "react";
+import React, { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import {
   TrendingUp, ShieldCheck, ShieldAlert, Sun, Cloud,
   CloudRain, AlertTriangle, BarChart3, Inbox, Calendar,
 } from "lucide-react";
-import { createClient } from "@/lib/actions/supabase/clients";
+import { useAuth } from "@/context/Authcontext";
 
 type Report = {
   id: string; report_date: string;
@@ -20,24 +20,31 @@ type Report = {
 };
 
 export default function ReportAnalytics({ projectId }: { projectId: string }) {
-  const t        = useTranslations("Admin.daily_reports");
-  const supabase = useRef(createClient()).current;
+  const t              = useTranslations("Admin.daily_reports");
+  const { supabase }   = useAuth();
 
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    const { data } = await supabase
-      .from("daily_reports")
-      .select("id, report_date, cumulative_progress_pct, issue_severity, safety_compliance, weather, shift, issues_description")
-      .eq("project_id", projectId)
-      .order("report_date", { ascending: true });
-    setReports(data || []);
-    setLoading(false);
-  }, [projectId]);
+  useEffect(() => {
+    let cancelled = false;
 
-  useEffect(() => { load(); }, [load]);
+    const fetchReports = async () => {
+      setLoading(true);
+      const { data } = await supabase
+        .from("daily_reports")
+        .select("id, report_date, cumulative_progress_pct, issue_severity, safety_compliance, weather, shift, issues_description")
+        .eq("project_id", projectId)
+        .order("report_date", { ascending: true });
+      if (!cancelled) {
+        setReports((Array.isArray(data) ? data : []) as unknown as Report[]);
+        setLoading(false);
+      }
+    };
+
+    fetchReports();
+    return () => { cancelled = true; };
+  }, [projectId, supabase]);
 
   if (loading) return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -83,10 +90,10 @@ export default function ReportAnalytics({ projectId }: { projectId: string }) {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <KpiCard label={t("kpi_total")}    value={total}                 color="slate"   icon={<BarChart3 size={18}/>} />
-        <KpiCard label={t("kpi_progress")} value={`${latestProgress}%`} color="orange"  icon={<TrendingUp size={18}/>} />
-        <KpiCard label={t("kpi_safety")}   value={`${safeCount}/${total}`} color="emerald" icon={<ShieldCheck size={18}/>} />
-        <KpiCard label={t("kpi_issues")}   value={withIssues}            color={withIssues > 0 ? "amber" : "slate"} icon={<AlertTriangle size={18}/>} />
+        <KpiCard label={t("kpi_total")}    value={total}                       color="slate"   icon={<BarChart3 size={18}/>} />
+        <KpiCard label={t("kpi_progress")} value={`${latestProgress}%`}        color="orange"  icon={<TrendingUp size={18}/>} />
+        <KpiCard label={t("kpi_safety")}   value={`${safeCount}/${total}`}     color="emerald" icon={<ShieldCheck size={18}/>} />
+        <KpiCard label={t("kpi_issues")}   value={withIssues}                  color={withIssues > 0 ? "amber" : "slate"} icon={<AlertTriangle size={18}/>} />
       </div>
 
       {/* Progress Chart */}
@@ -196,7 +203,6 @@ export default function ReportAnalytics({ projectId }: { projectId: string }) {
                   {w === "Sunny"  ? <Sun size={12} className="text-amber-500" />
                   : w === "Rainy" ? <CloudRain size={12} className="text-blue-500" />
                   : <Cloud size={12} className="text-slate-400" />}
-                  {/* weather label — raw DB value displayed as-is (English enum) */}
                   {w}
                 </span>
                 <div className="flex items-center gap-2">
@@ -204,7 +210,6 @@ export default function ReportAnalytics({ projectId }: { projectId: string }) {
                     <div className="h-full bg-blue-400 rounded-full"
                       style={{ width: `${(count / total) * 100}%` }} />
                   </div>
-                  {/* count in JSX */}
                   <span className="text-[10px] font-black text-slate-500 w-4 text-right">{count}</span>
                 </div>
               </div>
@@ -246,16 +251,27 @@ export default function ReportAnalytics({ projectId }: { projectId: string }) {
   );
 }
 
-function KpiCard({ label, value, color, icon }: { label: string; value: any; color: string; icon: React.ReactNode }) {
-  const colors: Record<string, string> = {
-    slate:   "bg-slate-900  text-white",
-    orange:  "bg-orange-500 text-white",
-    emerald: "bg-emerald-500 text-white",
-    amber:   "bg-amber-400  text-white",
-    red:     "bg-red-500    text-white",
-  };
+// ── KpiCard — value is string (formatted like "12/15" or "87%") or number ────
+type KpiColor = "slate" | "orange" | "emerald" | "amber" | "red";
+
+const KPI_COLORS: Record<KpiColor, string> = {
+  slate:   "bg-slate-900  text-white",
+  orange:  "bg-orange-500 text-white",
+  emerald: "bg-emerald-500 text-white",
+  amber:   "bg-amber-400  text-white",
+  red:     "bg-red-500    text-white",
+};
+
+function KpiCard({
+  label, value, color, icon,
+}: {
+  label: string;
+  value: string | number;
+  color: KpiColor;
+  icon: React.ReactNode;
+}) {
   return (
-    <div className={`rounded-2xl p-5 ${colors[color] || colors.slate}`}>
+    <div className={`rounded-2xl p-5 ${KPI_COLORS[color]}`}>
       <div className="flex items-start justify-between mb-3 opacity-70">{icon}</div>
       <p className="text-2xl font-black tracking-tight">{value}</p>
       <p className="text-[9px] font-black uppercase tracking-widest opacity-60 mt-1">{label}</p>

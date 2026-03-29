@@ -83,49 +83,51 @@ export default function DailyReportForm({ projectId, onSuccess }: Props) {
   const [success,    setSuccess]    = useState(false);
   const [error,      setError]      = useState<string | null>(null);
 
-  const set = (key: keyof FormData, value: any) =>
+ const set = <K extends keyof FormData>(key: K, value: FormData[K]) =>
     setForm(f => ({ ...f, [key]: value }));
 
   const handleSubmit = async () => {
     if (!form.work_description.trim()) {
       setError(t("err_work_required")); return;
     }
+    
     const progress = parseInt(form.cumulative_progress_pct);
     if (form.cumulative_progress_pct && (isNaN(progress) || progress < 0 || progress > 100)) {
       setError(t("err_progress_range")); return;
     }
 
-    setSubmitting(true); setError(null);
+    setSubmitting(true); 
+    setError(null);
 
-    const { data: inserted, error: err } = await supabase
+const { error: err } = await supabase
       .from("daily_reports")
       .insert({
-        project_id:              projectId,
-        report_date:             form.report_date,
-        weather:                 form.weather || null,
-        temperature:             form.temperature ? parseInt(form.temperature) : null,
-        shift:                   form.shift,
+        project_id: projectId,
+        report_date: form.report_date,
+        weather: form.weather || null,
+        temperature: form.temperature ? parseInt(form.temperature) : null,
+        shift: form.shift,
         cumulative_progress_pct: form.cumulative_progress_pct ? progress : null,
-        work_description:        form.work_description.trim(),
-        issues_description:      form.issues_description.trim() || null,
-        issue_severity:          form.issues_description.trim() && form.issue_severity
-                                   ? form.issue_severity : null,
-        action_taken:            form.action_taken.trim() || null,
-        safety_compliance:       form.safety_compliance,
-        supervisor_name:         form.supervisor_name.trim() || null,
-        status:                  "Submitted",
-      })
-      .select("id")
-      .single();
+        work_description: form.work_description.trim(),
+        issues_description: form.issues_description.trim() || null,
+        issue_severity: form.issues_description.trim() && form.issue_severity
+          ? form.issue_severity : null,
+        action_taken: form.action_taken.trim() || null,
+        safety_compliance: form.safety_compliance,
+        supervisor_name: form.supervisor_name.trim() || null,
+        status: "Submitted",
+      });
 
     setSubmitting(false);
+    
     if (err) {
-      setError(`${t("err_work_required").replace("Work description is", "Save")} ${err.message}`);
+      setError(`${t("err_save_failed")} ${err.message}`);
     } else {
       setSuccess(true);
       setTimeout(() => { onSuccess?.(); }, 1800);
     }
   };
+
 
   // ── Success state ──────────────────────────────────────────────────────────
   if (success) return (

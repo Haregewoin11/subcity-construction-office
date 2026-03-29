@@ -84,16 +84,37 @@ export default function TendersRegistryPage() {
 
   const loadTenders = useCallback(async () => {
     setLoading(true);
-    const { data, error } = await supabase
+    interface RawTenderResponse extends Omit<Tender, 'projects'> {
+      projects: { name: string; location: string }[] | { name: string; location: string } | null;
+    }
+  const { data, error } = await supabase
       .from("tenders")
-      .select("tender_id,ref_no,title,status,woreda,project_type,budget_estimate,currency,submission_deadline,created_at,visible_to_public,evaluation_method,project_id,rejection_remarks,projects!tenders_project_id_fkey(name,location)")
+      .select(`
+        tender_id, ref_no, title, status, woreda, project_type, 
+        budget_estimate, currency, submission_deadline, created_at, 
+        visible_to_public, evaluation_method, project_id, rejection_remarks, 
+        projects:projects!tenders_project_id_fkey(name, location)
+      `)
       .order("created_at", { ascending: false });
-    if (error) console.error("loadTenders error:", error);
-    setTenders((data as Tender[]) || []);
-    setLoading(false);
-  }, []);
 
-  useEffect(() => { loadTenders(); }, [loadTenders]);
+    if (error) {
+      console.error("loadTenders error:", error);
+      setLoading(false);
+      return;
+    }
+    const rawData = (data as unknown as RawTenderResponse[]) || [];
+    
+    const formattedTenders: Tender[] = rawData.map((item) => ({
+      ...item,
+      // Flatten the projects array into a single object
+      projects: Array.isArray(item.projects) ? item.projects[0] : item.projects || null,
+    }));
+
+    setTenders(formattedTenders);
+    setLoading(false);
+  }, [supabase]);
+
+
 
   async function openPanel() {
     setPanelOpen(true);

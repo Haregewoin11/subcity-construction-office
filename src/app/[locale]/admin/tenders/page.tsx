@@ -1,20 +1,24 @@
 "use client";
 // src/app/[locale]/admin/tenders/page.tsx
 
-import React, { useEffect, useState, useRef } from "react";
-import { useTranslations, useLocale } from "next-intl";
+import { useAuth } from "@/context/Authcontext";
 import {
-  Gavel, Inbox, Activity, BarChart3, CheckCircle2,
-  ArrowUpRight, Terminal, AlertTriangle,
-  ClipboardCheck, FileSignature
+  Activity,
+  AlertTriangle,
+  ArrowUpRight,
+  BarChart3, CheckCircle2,
+  ClipboardCheck, FileSignature,
+  Gavel, Inbox,
+  Terminal
 } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
-import { createClient } from "@/lib/actions/supabase/clients";
+import { useEffect, useState } from "react";
 
 export default function TenderManagementHub() {
   const t      = useTranslations("Admin.tenders_module");
   const locale = useLocale();
-  const supabase = useRef(createClient()).current;
+  const { supabase } = useAuth();
   const [stats, setStats] = useState({ total: 0, open: 0, evaluating: 0, awarded: 0, pendingApproval: 0, totalBudget: 0 });
   const [loading, setLoading] = useState(true);
 
@@ -60,13 +64,13 @@ export default function TenderManagementHub() {
   ];
 
   return (
-    <div className="min-h-screen p-8 flex flex-col bg-[#F4F6F9]">
+    <div className="min-h-screen p-8 flex flex-col bg-soft-bg">
 
       {/* HEADER */}
       <header className="mb-10 flex justify-between items-center">
         <div>
-          <h1 className="text-4xl font-black uppercase tracking-tight text-[#2C2C2C]">{t("hub_title")}</h1>
-          <p className="text-sm font-bold text-[#6C757D]">{t("hub_subtitle")}</p>
+          <h1 className="text-4xl font-black uppercase tracking-tight text-text-primary">{t("hub_title")}</h1>
+          <p className="text-sm font-bold text-text-secondary">{t("hub_subtitle")}</p>
         </div>
         <div className="bg-white px-6 py-3 rounded-2xl shadow-sm border border-slate-200">
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t("total_budget_label")}</p>
@@ -85,7 +89,7 @@ export default function TenderManagementHub() {
           { label: t("stat_evaluating"),       val: stats.evaluating,      color: "#8E44AD" },
           { label: t("stat_awarded"),          val: stats.awarded,         color: "#1A5276" },
         ].map((s, i) => (
-          <div key={i} className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm flex items-center justify-between group hover:border-[#0A1628] transition-all">
+          <div key={i} className="bg-white p-5 rounded-4xl border border-slate-100 shadow-sm flex items-center justify-between group hover:border-[#0A1628] transition-all">
             <div>
               <p className="text-[10px] font-black uppercase text-slate-400 mb-1">{s.label}</p>
               <p className="text-3xl font-black" style={{ color: s.color }}>{loading ? ".." : s.val}</p>
@@ -98,7 +102,7 @@ export default function TenderManagementHub() {
       </section>
 
       {/* WORKFLOW TIMELINE */}
-      <section className="bg-white rounded-[2rem] border border-slate-200 shadow-sm p-6 mb-10">
+      <section className="bg-white rounded-4xl border border-slate-200 shadow-sm p-6 mb-10">
         <h2 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-5">{t("workflow_title")}</h2>
         <div className="flex flex-wrap gap-2">
           {workflow.map((w, i) => (
@@ -126,8 +130,8 @@ export default function TenderManagementHub() {
               <div className="p-4 w-fit rounded-2xl text-white shadow-lg mb-6 transition-transform group-hover:scale-110" style={{ backgroundColor: m.color }}>
                 <m.icon size={22} />
               </div>
-              <h3 className="text-md font-black uppercase text-[#2C2C2C]">{m.title}</h3>
-              <p className="text-[11px] font-bold text-[#6C757D] mt-2 mb-8 leading-relaxed">{m.desc}</p>
+              <h3 className="text-md font-black uppercase text-text-primary">{m.title}</h3>
+              <p className="text-[11px] font-bold text-text-secondary mt-2 mb-8 leading-relaxed">{m.desc}</p>
               <div className="mt-auto flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-[#0A1628]">
                 {t("enter_module")} <ArrowUpRight size={14} />
               </div>

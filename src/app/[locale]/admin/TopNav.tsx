@@ -1,18 +1,14 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { createClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { Link, useRouter } from "@/i18n/routing";
 import { LanguageSwitcher } from "../../../components/shared/LanguageSwitcher";
+import { useAuth } from "@/context/Authcontext";
 import {
   Bell, Search, UserCircle, MessageSquareWarning,
-  ScrollText, X, ChevronRight, CheckCircle2,
+  ScrollText, X, ChevronRight, CheckCircle2, LogOut, ChevronDown,
 } from "lucide-react";
-import Link from "next/link";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 // ── Types ──────────────────────────────────────────────────────────────────
 interface NotifItem {
@@ -25,8 +21,22 @@ interface NotifItem {
   badge: string;
 }
 
+function formatRoleLabel(role: string | null | undefined): string {
+  if (!role) return "";
+  return role
+    .split("_")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}
+
 // ── Notification dropdown ──────────────────────────────────────────────────
-function NotificationDropdown({ onClose }: { onClose: () => void }) {
+function NotificationDropdown({
+  onClose,
+  supabase,
+}: {
+  onClose: () => void;
+  supabase: SupabaseClient;
+}) {
   const [items, setItems] = useState<NotifItem[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -74,19 +84,17 @@ function NotificationDropdown({ onClose }: { onClose: () => void }) {
       setLoading(false);
     }
     load();
-  }, []);
+  }, [supabase]);
 
   return (
     <div className="absolute right-0 top-full mt-2 w-80 bg-[#0D1F38] border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-50">
-      {/* Header */}
       <div className="flex items-center justify-between px-5 py-3.5 border-b border-white/[0.06]">
         <p className="text-[11px] font-black uppercase tracking-widest text-white/40">Notifications</p>
-        <button onClick={onClose} className="text-white/30 hover:text-white transition-colors">
+        <button type="button" onClick={onClose} className="text-white/30 hover:text-white transition-colors">
           <X size={14} />
         </button>
       </div>
 
-      {/* Items */}
       <div className="py-2">
         {loading ? (
           <div className="px-5 py-6 text-center text-white/30 text-xs font-bold">Loading...</div>
@@ -115,7 +123,6 @@ function NotificationDropdown({ onClose }: { onClose: () => void }) {
         )}
       </div>
 
-      {/* Footer */}
       {items.length > 0 && (
         <div className="border-t border-white/[0.06] px-5 py-3">
           <Link href="/admin/audit" onClick={onClose}
@@ -130,11 +137,21 @@ function NotificationDropdown({ onClose }: { onClose: () => void }) {
 
 // ── Main TopNav ────────────────────────────────────────────────────────────
 export function TopNav() {
+  const { supabase, profile, user, signOut } = useAuth();
+  const router = useRouter();
   const [notifOpen, setNotifOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [totalNotifs, setTotalNotifs] = useState(0);
+  const [signingOut, setSigningOut] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
+  const userMenuRef = useRef<HTMLDivElement>(null);
 
-  // Fetch total badge count on mount
+  const displayName =
+    profile?.full_name?.trim() ||
+    user?.email?.split("@")[0] ||
+    "Admin";
+  const roleSubtitle = formatRoleLabel(profile?.role) || profile?.department || "Administrator";
+
   useEffect(() => {
     async function loadCount() {
       const [{ count: pendingReqs }, { count: overdueTenders }] = await Promise.all([
@@ -151,23 +168,33 @@ export function TopNav() {
       setTotalNotifs((pendingReqs ?? 0) + (overdueTenders ?? 0));
     }
     loadCount();
-  }, []);
+  }, [supabase]);
 
-  // Close on outside click
   useEffect(() => {
     function handler(e: MouseEvent) {
-      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
-        setNotifOpen(false);
-      }
+      const t = e.target as Node;
+      if (notifRef.current && !notifRef.current.contains(t)) setNotifOpen(false);
+      if (userMenuRef.current && !userMenuRef.current.contains(t)) setUserMenuOpen(false);
     }
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
+  const handleSignOut = async () => {
+    setSigningOut(true);
+    setUserMenuOpen(false);
+    try {
+      await signOut();
+      router.replace("/admin/login");
+      router.refresh();
+    } finally {
+      setSigningOut(false);
+    }
+  };
+
   return (
     <header className="h-14 bg-[#071220] border-b border-white/[0.06] text-white flex items-center justify-between px-6 shrink-0 z-10">
 
-      {/* Left — search */}
       <div className="flex items-center w-72">
         <div className="relative w-full">
           <Search size={13} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/20" />
@@ -179,19 +206,17 @@ export function TopNav() {
         </div>
       </div>
 
-      {/* Right — actions */}
       <div className="flex items-center gap-1">
 
-        {/* Language switcher */}
         <div className="px-1">
           <LanguageSwitcher />
         </div>
 
         <div className="w-px h-6 bg-white/10 mx-2" />
 
-        {/* Notification bell */}
         <div ref={notifRef} className="relative">
           <button
+            type="button"
             onClick={() => setNotifOpen((v) => !v)}
             className={`relative p-2.5 rounded-xl transition-all ${
               notifOpen ? "bg-white/10 text-white" : "text-white/40 hover:bg-white/[0.06] hover:text-white"
@@ -203,20 +228,54 @@ export function TopNav() {
             )}
           </button>
 
-          {notifOpen && <NotificationDropdown onClose={() => setNotifOpen(false)} />}
+          {notifOpen && <NotificationDropdown onClose={() => setNotifOpen(false)} supabase={supabase} />}
         </div>
 
         <div className="w-px h-6 bg-white/10 mx-2" />
 
-        {/* User */}
-        <div className="flex items-center gap-3 pl-1">
-          <div className="text-right">
-            <p className="text-[12px] font-black text-white leading-none">Admin User</p>
-            <p className="text-[10px] text-white/30 font-medium mt-0.5">Chief Engineer</p>
-          </div>
-          <div className="w-8 h-8 rounded-xl bg-[#E85D1A]/20 border border-[#E85D1A]/30 flex items-center justify-center">
-            <UserCircle size={18} className="text-[#E85D1A]" />
-          </div>
+        <div ref={userMenuRef} className="relative flex items-center gap-3 pl-1">
+          <button
+            type="button"
+            onClick={() => setUserMenuOpen((v) => !v)}
+            className={`flex items-center gap-3 rounded-xl pr-1 py-1 pl-2 transition-colors ${
+              userMenuOpen ? "bg-white/10" : "hover:bg-white/[0.06]"
+            }`}
+          >
+            <div className="text-right hidden sm:block">
+              <p className="text-[12px] font-black text-white leading-none max-w-[140px] truncate">
+                {displayName}
+              </p>
+              <p className="text-[10px] text-white/30 font-medium mt-0.5 max-w-[140px] truncate">
+                {roleSubtitle}
+              </p>
+            </div>
+            <div className="w-8 h-8 rounded-xl bg-[#E85D1A]/20 border border-[#E85D1A]/30 flex items-center justify-center shrink-0">
+              <UserCircle size={18} className="text-[#E85D1A]" />
+            </div>
+            <ChevronDown
+              size={14}
+              className={`text-white/30 shrink-0 transition-transform ${userMenuOpen ? "rotate-180" : ""}`}
+            />
+          </button>
+
+          {userMenuOpen && (
+            <div className="absolute right-0 top-full mt-2 w-56 bg-[#0D1F38] border border-white/10 rounded-xl shadow-2xl overflow-hidden z-50 py-1">
+              {user?.email && (
+                <p className="px-4 py-2 text-[10px] text-white/35 font-medium border-b border-white/[0.06] truncate" title={user.email}>
+                  {user.email}
+                </p>
+              )}
+              <button
+                type="button"
+                disabled={signingOut}
+                onClick={() => void handleSignOut()}
+                className="w-full flex items-center gap-2.5 px-4 py-3 text-left text-[12px] font-bold text-white/70 hover:bg-white/[0.06] hover:text-white disabled:opacity-50 transition-colors"
+              >
+                <LogOut size={14} className="text-red-400 shrink-0" />
+                {signingOut ? "Signing out…" : "Sign out"}
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </header>

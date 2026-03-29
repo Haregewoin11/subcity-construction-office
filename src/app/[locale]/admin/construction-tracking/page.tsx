@@ -4,7 +4,7 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import {
-  HardHat, Activity, MapPin, ChevronRight, Clock,
+  HardHat, Activity, MapPin, ChevronRight,
   FileText, ShieldAlert, RefreshCw,
   Building2, AlertTriangle, Inbox, CalendarDays,
 } from "lucide-react";
@@ -19,6 +19,8 @@ type Project = {
   contractor: string | null; report_count: number;
   open_issues: number; failed_inspections: number;
 };
+
+type ContractorRow = { id: string; company_name: string | null };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function getDaysLeft(date: string | null): number | null {
@@ -68,8 +70,10 @@ export default function ConstructionTrackingPage() {
     if (error || !flat) { setLoading(false); return; }
     if (flat.length === 0) { setProjects([]); setLoading(false); return; }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const ids           = flat.map((p: any) => p.id);
-    const contractorIds = [...new Set(flat.map((p: any) => p.contractor_id).filter(Boolean))] as string[];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const contractorIds = [...new Set(flat.map((p: any ) => p.contractor_id).filter(Boolean))] as string[];
 
     const [
       { data: contractors },
@@ -86,9 +90,10 @@ export default function ConstructionTrackingPage() {
     ]);
 
     const contractorMap = Object.fromEntries(
-      (contractors || []).map((c: any) => [c.id, c.company_name])
-    );
+      (contractors as ContractorRow[] | null | undefined ?? []).map((c) => [c.id, c.company_name])
+    ) as Record<string, string | null>;
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const enriched: Project[] = flat.map((p: any) => ({
       id:                p.id,
       name:              p.name,
@@ -99,16 +104,21 @@ export default function ConstructionTrackingPage() {
       expected_end_date: p.expected_end_date,
       contractor_id:     p.contractor_id,
       contractor:        p.contractor_id ? (contractorMap[p.contractor_id] ?? null) : null,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       report_count:      (reports     || []).filter((r: any) => r.project_id === p.id).length,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       open_issues:       (issues      || []).filter((i: any) => i.project_id === p.id && i.status === "Open").length,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       failed_inspections:(inspections || []).filter((i: any) => i.project_id === p.id && i.passed === false).length,
     }));
 
     setProjects(enriched);
     setLoading(false);
-  }, []);
+  }, [supabase]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    void Promise.resolve().then(() => load());
+  }, [load]);
 
   // ── KPIs ──────────────────────────────────────────────────────────────────
   const avgProgress = projects.length

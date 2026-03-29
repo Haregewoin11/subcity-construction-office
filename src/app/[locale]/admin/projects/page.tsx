@@ -9,6 +9,7 @@ import { useState, useEffect, useMemo, useCallback, Suspense } from "react";
 import { useTranslations } from "next-intl";
 import { useSearchParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/actions/supabase/clients";
+import { useAuth } from "@/context/Authcontext";
 import { saveProject, deleteProject } from "@/lib/actions/projects";
 import { DeleteWarningModal } from "@/components/admin/DeleteWarningModal";
 import { ProjectTable } from "@/components/admin/ProjectTable";
@@ -48,7 +49,7 @@ const LBL = "block text-[10px] font-black uppercase tracking-widest text-slate-4
 function ProjectsPageInner() {
   const t  = useTranslations("Admin.projects_module");
   const tm = useTranslations("Admin.manage_project");
-  const supabase = createClient();
+  const { supabase } = useAuth();
   const searchParams = useSearchParams();
   const router = useRouter();
 
