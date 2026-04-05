@@ -152,7 +152,7 @@ export function AboutPageClient({
   const verified    = (contractors || []).filter(c => c.is_verified);
 
   return (
-    <>
+    <div className="min-h-screen bg-[#F4F5F7]">
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&family=Noto+Serif+Ethiopic:wght@400;600;700&display=swap');
         *,*::before,*::after{font-family:'DM Sans',system-ui,sans-serif;}
@@ -219,10 +219,7 @@ export function AboutPageClient({
              paddingTop: 96 = 32px utility bar + 64px nav
       ══════════════════════════════════════════════════════ */}
       <section className="bg-[#0B1829] overflow-hidden relative" style={{ paddingTop: 96 }}>
-        <div className="absolute inset-0 pointer-events-none" style={{
-          backgroundImage: "repeating-linear-gradient(0deg,#fff 0,#fff 1px,transparent 1px,transparent 60px),repeating-linear-gradient(90deg,#fff 0,#fff 1px,transparent 1px,transparent 60px)",
-          opacity: .025,
-        }} />
+       <div className="absolute inset-0  pointer-events-none" />
 
         <div className="max-w-[1400px] mx-auto relative">
           <div className="grid grid-cols-1 lg:grid-cols-12">
@@ -573,6 +570,6 @@ export function AboutPageClient({
           </div>
         </div>
       </section>
-    </>
+    </div>
   );
 }

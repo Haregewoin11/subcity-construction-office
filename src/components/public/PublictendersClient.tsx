@@ -153,7 +153,6 @@ export default function PublicTendersClient({
           opacity: 0.03;
         }
       `}</style>
-
       {/* ══ UTILITY BAR — fixed top, z-50 ══ */}
       <div className="bg-[#071220] border-b border-white/6 text-[11.5px] fixed top-0 left-0 right-0 z-50">
         <div className="max-w-7xl mx-auto px-8 h-8 flex items-center justify-between">
@@ -192,27 +191,27 @@ export default function PublicTendersClient({
       {/* ══════════════════════════════════════
           HERO — dark, matching site design
       ══════════════════════════════════════ */}
-      <section className="relative bg-[#0A1628] pt-40 pb-20 overflow-hidden">
-        <div className="absolute inset-0 grid-texture pointer-events-none" />
+      <section className="relative bg-[#0A1628] pt-30 pb-15 overflow-hidden">
+        <div className="absolute inset-0  pointer-events-none" />
         <div className="absolute top-0 right-0 w-1/3 h-full bg-linear-to-bl from-[#E85D1A]/10 via-transparent to-transparent pointer-events-none" />
-        <div className="absolute right-0 top-0 bottom-0 w-px bg-linear-to-b from-transparent via-[#E85D1A]/40 to-transparent" />
+        {/* <div className="absolute right-0 top-0 bottom-0 w-px bg-gradient-to-b from-transparent via-[#E85D1A]/40 to-transparent" /> */}
 
         <div className="relative max-w-7xl mx-auto px-5">
-          <div className="flex items-start justify-between gap-8 flex-wrap mb-14">
-            <div>
-              {/* <p className={`text-[10px] font-black uppercase tracking-[0.5em] text-[#E85D1A] mb-4 ${am}`}>
-                {t("tenders.eyebrow")}
-              </p> */}
-              <h1 className={`text-4xl md:text-5xl font-black text-white leading-tight mb-4 ${am}`}>
-                {t("tenders.heroTitle")}
-              </h1>
-              <p className={`text-white/40 text-lg max-w-2xl leading-relaxed ${am}`}>
-                {t("tenders.heroBody")}
-              </p>
-            </div>
+       
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-end">
+      
+      {/* Left Side: Content */}
+      <div className="lg:col-span-8">
+         <h1 className={`text-4xl md:text-5xl font-black text-white leading-tight mb-4 ${am}`}>
+           {t("tenders.heroTitle")}
+           </h1>
+        <p className={`text-white/40 text-lg max-w-2xl leading-relaxed ${am}`}>  {t("tenders.heroBody")}</p>
 
-            {/* KPI cards */}
-            <div className="flex gap-4 flex-wrap">
+        
+      </div>
+
+      {/* Right Side: KPI Cards (Project Style) */}
+        <div className="flex gap-4 flex-2">
               {[
                 { val: tenders.length, labelKey: "tenders.totalOpen",   border: "border-[#E85D1A]/30" },
                 { val: urgentCount,    labelKey: "tenders.closingSoon",  border: "border-red-500/30"   },
@@ -228,50 +227,65 @@ export default function PublicTendersClient({
                 </div>
               ))}
             </div>
-          </div>
+    </div>
+  </div>
+</section>
 
-          {/* Search + filters */}
-          <div className="flex flex-wrap gap-3 items-center">
-            <div className="relative flex-1 min-w-[260px] max-w-md">
-              <Search size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/25" />
-              <input value={search} onChange={e => setSearch(e.target.value)}
-                placeholder={t("tenders.searchPlaceholder")}
-                className={`w-full bg-white/6 border border-white/10 text-white placeholder:text-white/25 pl-10 pr-4 py-3 rounded-xl text-sm focus:outline-none focus:border-[#E85D1A]/50 transition-colors ${am}`} />
-            </div>
+{/* ── FILTER BAR (Unified Project Style) ── */}
+<div className="bg-[#071220] border-b border-white/6 sticky top-0 z-30">
+  <div className="max-w-7xl mx-auto px-8 py-6 flex flex-wrap items-center gap-4">
+    
+    {/* Search */}
+    <div className="relative flex-1 min-w-[280px] max-w-md">
+      <Search size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/25" />
+      <input 
+        value={search} 
+        onChange={e => setSearch(e.target.value)}
+        placeholder={t("tenders.searchPlaceholder")}
+        className={`w-full bg-white/5 border border-white/10 text-white placeholder:text-white/25 pl-11 pr-4 py-3.5 rounded-xl text-sm focus:outline-none focus:border-[#E85D1A]/50 transition-all ${am}`} 
+      />
+    </div>
 
-            <div className="relative">
-              <Filter size={11} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none" />
-              <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)}
-                className="appearance-none bg-white/6 border border-white/10 text-white/60 pl-8 pr-8 py-3 rounded-xl text-xs font-black focus:outline-none focus:border-[#E85D1A]/50 transition-colors">
-                {projectTypes.map(o => (
-                  <option key={o} value={o} className="bg-[#0A1628]">
-                    {o === "All" ? t("tenders.allTypes") : o}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown size={11} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none" />
-            </div>
+    {/* Type Filter */}
+    <div className="relative">
+      <Filter size={11} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none" />
+      <select 
+        value={typeFilter} 
+        onChange={e => setTypeFilter(e.target.value)}
+        className={`appearance-none bg-white/5 border border-white/10 text-white/70 pl-10 pr-10 py-3.5 rounded-xl text-[11px] font-black uppercase tracking-wider focus:outline-none focus:border-[#E85D1A]/50 transition-all ${am}`}
+      >
+        {projectTypes.map(o => (
+          <option key={o} value={o} className="bg-[#0A1628]">
+            {o === "All" ? t("tenders.allTypes") : o}
+          </option>
+        ))}
+      </select>
+      <ChevronDown size={11} className="absolute right-4 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none" />
+    </div>
 
-            <div className="relative">
-              <MapPin size={11} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none" />
-              <select value={woredaFilter} onChange={e => setWoredaFilter(e.target.value)}
-                className="appearance-none bg-white/6 border border-white/10 text-white/60 pl-8 pr-8 py-3 rounded-xl text-xs font-black focus:outline-none focus:border-[#E85D1A]/50 transition-colors">
-                {woredas.map(o => (
-                  <option key={o} value={o} className="bg-[#0A1628]">
-                    {o === "All" ? t("tenders.allWoredas") : o}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown size={11} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none" />
-            </div>
+    {/* Woreda Filter */}
+    <div className="relative">
+      <MapPin size={11} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none" />
+      <select 
+        value={woredaFilter} 
+        onChange={e => setWoredaFilter(e.target.value)}
+        className={`appearance-none bg-white/5 border border-white/10 text-white/70 pl-10 pr-10 py-3.5 rounded-xl text-[11px] font-black uppercase tracking-wider focus:outline-none focus:border-[#E85D1A]/50 transition-all ${am}`}
+      >
+        {woredas.map(o => (
+          <option key={o} value={o} className="bg-[#0A1628]">
+            {o === "All" ? t("tenders.allWoredas") : o}
+          </option>
+        ))}
+      </select>
+      <ChevronDown size={11} className="absolute right-4 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none" />
+    </div>
 
-            {/* Count — number in JSX, unit from t() — no ICU */}
-            <p className={`text-[11px] text-white/30 font-bold ml-auto shrink-0 ${am}`}>
-              {filtered.length} {t("tenders.resultsCount")}
-            </p>
-          </div>
-        </div>
-      </section>
+    {/* Count */}
+    <p className={`text-[11px] text-white/25 font-bold ml-auto shrink-0 tracking-widest uppercase ${am}`}>
+      {filtered.length} {t("tenders.resultsCount")}
+    </p>
+  </div>
+</div>
 
       {/* ══════════════════════════════════════
           TENDER CARDS — light background

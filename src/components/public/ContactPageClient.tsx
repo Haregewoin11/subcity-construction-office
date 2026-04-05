@@ -182,9 +182,7 @@ export default function ContactPageClient({
 
       {/* ── Hero ── */}
       <section className="bg-[#0A1628] pt-40 pb-16 relative overflow-hidden">
-        <div className="absolute inset-0 opacity-[0.04]" style={{
-          backgroundImage: "repeating-linear-gradient(0deg,#fff 0,#fff 1px,transparent 1px,transparent 60px),repeating-linear-gradient(90deg,#fff 0,#fff 1px,transparent 1px,transparent 60px)",
-        }} />
+        <div className="absolute inset-0  pointer-events-none" />
         <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-[#E85D1A] to-transparent" />
         <div className="relative max-w-7xl mx-auto px-6">
           {/* <p className={`text-[10px] font-black uppercase tracking-[0.5em] text-[#E85D1A] mb-4 ${amCls}`}>

@@ -143,28 +143,7 @@ export function PublicNav({
           {/* ── Controls ── */}
           <div className="flex items-center gap-3 shrink-0">
 
-            {/* Language toggle — the only interactive element that changes language */}
-            {/* <button
-              type="button"
-              onClick={() => handleLang(lang === "en" ? "am" : "en")}
-              className="flex items-center gap-1.5 px-3 py-2 bg-white/[0.08] hover:bg-white/[0.15]
-                         border border-white/[0.12] text-white/70 hover:text-white
-                         transition-all text-[10px] font-black uppercase tracking-wider"
-              aria-label="Toggle language"
-            >
-              <Globe size={11} />
-              {lang === "en" ? "አማ" : "EN"}
-            </button> */}
-
-            {/* Admin portal link — desktop */}
-            <Link
-              href={`/${locale}/admin/login`}
-              className={`hidden md:flex items-center px-3 py-2 bg-[#E85D1A]/10 hover:bg-[#E85D1A]/20
-                          border border-[#E85D1A]/25 text-[#E85D1A] text-[10px] font-black
-                          uppercase tracking-widest transition-all ${amCls}`}
-            >
-              {t("nav.login")}
-            </Link>
+          
 
             {/* Mobile hamburger — opens/closes drawer */}
             <button
@@ -195,16 +174,7 @@ export function PublicNav({
                 {t(item.key)}
               </Link>
             ))}
-            <div className="pt-3 border-t border-white/8 mt-3">
-              <Link
-                href={`/${locale}/admin/login`}
-                onClick={() => setMobileOpen(false)}
-                className={`block px-4 py-3 text-sm font-black uppercase tracking-wide
-                            text-[#E85D1A] bg-[#E85D1A]/10 hover:bg-[#E85D1A]/20 transition-all ${amCls}`}
-              >
-                {t("nav.login")}
-              </Link>
-            </div>
+       
           </div>
         )}
       </div>

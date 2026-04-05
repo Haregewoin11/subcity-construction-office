@@ -203,8 +203,8 @@ const paginatedProjects = useMemo(() => {
         html { scroll-behavior: smooth; }
         .grid-texture {
           background-image:
-            repeating-linear-gradient(0deg,#fff 0,#fff 1px,transparent 1px,transparent 60px),
-            repeating-linear-gradient(90deg,#fff 0,#fff 1px,transparent 1px,transparent 60px);
+            // repeating-linear-gradient(0deg,#fff 0,#fff 1px,transparent 1px,transparent 60px),
+            // repeating-linear-gradient(90deg,#fff 0,#fff 1px,transparent 1px,transparent 60px);
           opacity: 0.03;
         }
       `}</style>
@@ -248,15 +248,12 @@ const paginatedProjects = useMemo(() => {
           HERO — dark, matching site design
       ══════════════════════════════════════ */}
       <section className="relative bg-[#0A1628] pt-30 pb-15 overflow-hidden">
-        <div className="absolute inset-0 grid-texture pointer-events-none" />
+        <div className="absolute inset-0  pointer-events-none" />
         <div className="absolute top-0 right-0 w-1/3 h-full bg-linear-to-bl from-[#E85D1A]/10 via-transparent to-transparent pointer-events-none" />
         {/* <div className="absolute right-0 top-0 bottom-0 w-px bg-gradient-to-b from-transparent via-[#E85D1A]/40 to-transparent" /> */}
 
         <div className="relative max-w-7xl mx-auto px-5">
-
-          {/* <p className={`text-[10px] font-black uppercase tracking-[0.5em] text-[#E85D1A] mb-4 ${am}`}>
-            {t("projects.eyebrow")}
-          </p> */}
+       
           <h1 className={`text-4xl md:text-5xl font-black text-white leading-tight mb-4 ${am}`}>
             {t("projects.heroTitle")}
           </h1>
@@ -274,21 +271,15 @@ const paginatedProjects = useMemo(() => {
         <div className="max-w-7xl mx-auto px-8 py-4 flex flex-wrap items-center gap-3">
 
           {/* Search */}
-          <div className="relative flex-1 min-w-[200px] max-w-xs">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30" />
-            <input
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder={t("projects.searchPlaceholder")}
-              className={`w-full bg-white/6 border border-white/10 rounded-xl pl-9 pr-8 py-2.5 text-sm text-white placeholder:text-white/25 focus:outline-none focus:border-[#E85D1A]/50 transition-colors ${am}`}
-            />
-            {search && (
-              <button onClick={() => setSearch("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60">
-                <X size={13} />
-              </button>
-            )}
-          </div>
+          <div className="relative flex-1 min-w-[280px] max-w-md">
+                <Search size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/25" />
+                <input 
+                  value={search} 
+                  onChange={e => setSearch(e.target.value)}
+                  placeholder={t("projects.searchPlaceholder")}
+                  className={`w-full bg-white/5 border border-white/10 text-white placeholder:text-white/25 pl-11 pr-4 py-3.5 rounded-xl text-sm focus:outline-none focus:border-[#E85D1A]/50 transition-all ${am}`} 
+                />
+              </div>
 
           {/* Status pills */}
           <div className="flex items-center gap-1.5 flex-wrap">

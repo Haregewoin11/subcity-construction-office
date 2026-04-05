@@ -124,109 +124,119 @@ function SH({
   );
 }
 
-// ─── Construction animation scene ────────────────────────────────────────
-function ConstructionScene() {
-  return (
-    <div className="relative w-full h-full min-h-[360px] overflow-hidden select-none" aria-hidden>
-      <style>{`
-        @keyframes swing{0%,100%{transform-origin:top center;transform:rotate(-8deg)}50%{transform-origin:top center;transform:rotate(8deg)}}
-        .crane-hook{animation:swing 3.5s ease-in-out infinite}
-        @keyframes hammer{0%,100%{transform:rotate(0deg) translateY(0)}40%{transform:rotate(-40deg) translateY(-4px)}60%{transform:rotate(10deg) translateY(2px)}}
-        .worker-arm1{transform-origin:16px 12px;animation:hammer 1.2s ease-in-out infinite}
-        @keyframes dig{0%,100%{transform:rotate(0deg)}50%{transform:rotate(18deg)}}
-        .worker-arm2{transform-origin:8px 8px;animation:dig 1.6s ease-in-out infinite}
-        @keyframes rise{0%{transform:scaleY(0)}100%{transform:scaleY(1)}}
-        .floor1{transform-origin:bottom;animation:rise 1s ease-out 0.3s both}
-        .floor2{transform-origin:bottom;animation:rise 1s ease-out 0.7s both}
-        .floor3{transform-origin:bottom;animation:rise 1s ease-out 1.1s both}
-        .floor4{transform-origin:bottom;animation:rise 1s ease-out 1.5s both}
-        @keyframes puff{0%{opacity:0;transform:scale(0.4) translateY(0)}40%{opacity:0.6;transform:scale(1) translateY(-8px)}100%{opacity:0;transform:scale(1.4) translateY(-18px)}}
-        .dust1{animation:puff 2s ease-out 0.5s infinite}.dust2{animation:puff 2s ease-out 1.2s infinite}
-        @keyframes barfill{from{width:0%}to{width:62%}}
-        .progbar{animation:barfill 2.5s ease-out 0.5s both}
-        @keyframes floatbadge{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
-        .floatbadge{animation:floatbadge 3s ease-in-out infinite}
-        @keyframes livedot{0%,100%{opacity:1}50%{opacity:0.2}}
-        .livedot{animation:livedot 1.5s ease-in-out infinite}
-      `}</style>
-      <svg viewBox="0 0 520 360" className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <linearGradient id="cs-sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#C8DDF0"/><stop offset="100%" stopColor="#E8F2FA"/></linearGradient>
-          <linearGradient id="cs-bldg" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stopColor="#4A7290"/><stop offset="100%" stopColor="#2E5570"/></linearGradient>
-          <linearGradient id="cs-ground" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#9BAFC0"/><stop offset="100%" stopColor="#7A9AB0"/></linearGradient>
-        </defs>
-        <rect width="520" height="360" fill="url(#cs-sky)"/>
-        <rect x="20" y="190" width="50" height="120" fill="#A8BFCC" rx="1"/>
-        <rect x="25" y="196" width="8" height="8" fill="#C8D8E4" rx="0.5"/>
-        <rect x="37" y="196" width="8" height="8" fill="#C8D8E4" rx="0.5"/>
-        <rect x="25" y="210" width="8" height="8" fill="#C8D8E4" rx="0.5"/>
-        <rect x="37" y="210" width="8" height="8" fill="#C8D8E4" rx="0.5"/>
-        <rect x="78" y="210" width="42" height="100" fill="#94B0C2" rx="1"/>
-        <rect x="170" y="270" width="180" height="40" fill="#5A7A90"/>
-        <rect x="170" y="230" width="180" height="42" fill="url(#cs-bldg)" className="floor1"/>
-        <rect x="178" y="238" width="18" height="15" fill="#7AACCC" rx="0.5" opacity="0.7"/>
-        <rect x="204" y="238" width="18" height="15" fill="#7AACCC" rx="0.5" opacity="0.7"/>
-        <rect x="230" y="238" width="18" height="15" fill="#7AACCC" rx="0.5" opacity="0.7"/>
-        <rect x="170" y="190" width="180" height="42" fill="url(#cs-bldg)" className="floor2"/>
-        <rect x="178" y="198" width="18" height="15" fill="#7AACCC" rx="0.5" opacity="0.6"/>
-        <rect x="170" y="152" width="180" height="40" fill="url(#cs-bldg)" className="floor3"/>
-        <rect x="178" y="130" width="164" height="24" fill="#3A6278" className="floor4"/>
-        <rect x="356" y="130" width="4" height="180" fill="#6A8090"/>
-        <rect x="370" y="130" width="4" height="180" fill="#6A8090"/>
-        <rect x="430" y="50" width="10" height="260" fill="#C08010"/>
-        <rect x="380" y="52" width="54" height="6" fill="#D09020"/>
-        <rect x="440" y="48" width="70" height="8" fill="#E8A020"/>
-        <g className="crane-hook">
-          <line x1="480" y1="64" x2="480" y2="100" stroke="#5A4A30" strokeWidth="1.5"/>
-          <rect x="474" y="100" width="12" height="8" fill="#4A3A28" rx="1"/>
-          <rect x="472" y="108" width="16" height="12" fill="#6A5A40" rx="1"/>
-        </g>
-        <rect x="0" y="310" width="520" height="50" fill="url(#cs-ground)"/>
-        {[0,30,60,90,120,150,180,210,240,270,300,330,360,390,420,450,480].map(x => (
-          <rect key={x} x={x} y="305" width="22" height="8" fill="#E85D1A" opacity="0.75" rx="0.5"/>
-        ))}
-        <g transform="translate(186,270)">
-          <rect x="8" y="14" width="12" height="20" fill="#E85D1A" rx="2"/>
-          <ellipse cx="14" cy="10" rx="9" ry="6" fill="#F4A03A"/>
-          <circle cx="14" cy="9" r="7" fill="#F5DDB8"/>
-          <g className="worker-arm1">
-            <rect x="18" y="12" width="4" height="14" fill="#D4560F" rx="1"/>
-            <rect x="17" y="8" width="12" height="6" fill="#5A4A30" rx="1"/>
-          </g>
-          <rect x="8" y="33" width="5" height="14" fill="#2A4A6B" rx="1"/>
-          <rect x="15" y="33" width="5" height="14" fill="#2A4A6B" rx="1"/>
-        </g>
-        <g transform="translate(310,268)">
-          <rect x="8" y="14" width="12" height="20" fill="#039737" rx="2"/>
-          <ellipse cx="14" cy="10" rx="9" ry="6" fill="#F4C03A"/>
-          <circle cx="14" cy="9" r="7" fill="#F0D0A8"/>
-          <g className="worker-arm2">
-            <rect x="18" y="10" width="3" height="28" fill="#8A6840" rx="1"/>
-            <ellipse cx="19.5" cy="38" rx="5" ry="3.5" fill="#5A4828"/>
-          </g>
-          <rect x="8" y="33" width="5" height="14" fill="#1A3A5A" rx="1"/>
-          <rect x="15" y="33" width="5" height="14" fill="#1A3A5A" rx="1"/>
-        </g>
-        <circle cx="200" cy="265" r="8" fill="#C8D8E4" opacity="0.5" className="dust1"/>
-        <circle cx="325" cy="264" r="7" fill="#C8D8E4" opacity="0.5" className="dust2"/>
-        <g transform="translate(200,90)" className="floatbadge">
-          <rect width="120" height="44" rx="4" fill="white" filter="drop-shadow(0 4px 8px rgba(0,0,0,0.15))"/>
-          <rect x="10" y="10" width="14" height="14" rx="2" fill="#E85D1A"/>
-          <text x="30" y="20" fontSize="7" fill="#0A1628" fontWeight="700" fontFamily="sans-serif">PROJECT PROGRESS</text>
-          <rect x="10" y="28" width="80" height="6" rx="2" fill="#EEF1F6"/>
-          <rect x="10" y="28" width="50" height="6" rx="2" fill="#E85D1A" className="progbar"/>
-          <text x="96" y="34" fontSize="8" fill="#0A1628" fontWeight="800" fontFamily="sans-serif">62%</text>
-        </g>
-        <g transform="translate(360,86)">
-          <rect width="90" height="24" rx="12" fill="#E85D1A"/>
-          <circle cx="16" cy="12" r="4" fill="white" className="livedot"/>
-          <text x="25" y="16" fontSize="8" fill="white" fontWeight="700" fontFamily="sans-serif">LIVE SITE</text>
-        </g>
-      </svg>
-    </div>
-  );
-}
 
+
+// export function ConstructionScene() {
+//   return (
+//     <div className="relative w-full h-full min-h-[400px] overflow-hidden select-none bg-[#0A1628] rounded-2xl border border-white/5" aria-hidden>
+//       <style>{`
+//         /* Crane & Hook Physics */
+//         @keyframes swing { 0%, 100% { transform: rotate(-3deg); } 50% { transform: rotate(3deg); } }
+//         .crane-arm { transform-origin: 430px 50px; animation: swing 6s ease-in-out infinite; }
+        
+//         /* Animated Progress Bar */
+//         @keyframes barfill { from { width: 0%; } to { width: 68%; } }
+//         .progbar { animation: barfill 2.5s cubic-bezier(0.65, 0, 0.35, 1) 0.5s both; }
+
+//         /* Floating UI elements */
+//         @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+//         .ui-float { animation: float 4s ease-in-out infinite; }
+
+//         /* Construction Activity */
+//         @keyframes hammer { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(-35deg); } }
+//         .worker-action { transform-origin: center; animation: hammer 1.5s ease-in-out infinite; }
+
+//         /* Status Dot */
+//         @keyframes pulse-dot { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(0.9); } }
+//         .pulse { animation: pulse-dot 2s ease-in-out infinite; }
+        
+//         /* Building Growth */
+//         @keyframes grow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+//         .bldg-rise { transform-origin: bottom; animation: grow 1.2s cubic-bezier(0.22, 1, 0.36, 1) both; }
+//       `}</style>
+
+//       <svg viewBox="0 0 520 400" className="w-full h-full px-4" xmlns="http://www.w3.org/2000/svg">
+//         <defs>
+//           <linearGradient id="bldg-grad" x1="0" y1="0" x2="0" y2="1">
+//             <stop offset="0%" stopColor="#1E293B" />
+//             <stop offset="100%" stopColor="#0F172A" />
+//           </linearGradient>
+//           <filter id="glow">
+//             <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+//             <feMerge>
+//               <feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/>
+//             </feMerge>
+//           </filter>
+//         </defs>
+
+//         {/* ── BACKGROUND ELEMENTS ──────────────────────────────────── */}
+//         <rect x="40" y="220" width="60" height="100" fill="#162030" rx="4" className="bldg-rise" style={{ animationDelay: '0.1s' }} />
+//         <rect x="110" y="180" width="50" height="140" fill="#111B2B" rx="4" className="bldg-rise" style={{ animationDelay: '0.3s' }} />
+
+//         {/* ── MAIN CONSTRUCTION STRUCTURE ─────────────────────────── */}
+//         <g className="bldg-rise" style={{ animationDelay: '0.5s' }}>
+//           <rect x="180" y="120" width="160" height="200" fill="url(#bldg-grad)" rx="2" stroke="white" strokeWidth="0.5" strokeOpacity="0.1" />
+//           {/* Windows / Scaffolding Grid */}
+//           <path d="M180 160 H340 M180 200 H340 M180 240 H340 M180 280 H340 M220 120 V320 M260 120 V320 M300 120 V320" 
+//                 stroke="white" strokeOpacity="0.05" strokeWidth="1" />
+//           {/* Active Work Area Highlight */}
+//           <rect x="180" y="120" width="160" height="40" fill="#E85D1A" fillOpacity="0.05" />
+//           <rect x="180" y="120" width="160" height="2" fill="#E85D1A" fillOpacity="0.3" />
+//         </g>
+
+//         {/* ── THE CRANE ────────────────────────────────────────────── */}
+//         <g className="crane-arm">
+//             <rect x="425" y="40" width="8" height="280" fill="#1E293B" rx="2" />
+//             <path d="M100 45 H430 L435 55 H110 Z" fill="#E85D1A" />
+//             <line x1="140" y1="55" x2="140" y2="140" stroke="#E85D1A" strokeWidth="1.5" strokeDasharray="4 2" />
+//             <rect x="132" y="140" width="16" height="20" fill="#334155" rx="2" />
+//         </g>
+
+//         {/* ── GROUND & HAZARD ──────────────────────────────────────── */}
+//         <rect x="0" y="320" width="520" height="80" fill="#070F1A" />
+//         <g transform="translate(0, 315)">
+//           {[...Array(24)].map((_, i) => (
+//             <rect key={i} x={i * 22} y="0" width="12" height="6" fill="#E85D1A" fillOpacity="0.6" transform="skewX(-20)" />
+//           ))}
+//         </g>
+
+//         {/* ── WORKERS ──────────────────────────────────────────────── */}
+//         <g transform="translate(210, 285)">
+//           <circle cx="10" cy="0" r="6" fill="#F4A03A" /> {/* Helmet */}
+//           <rect x="2" y="6" width="16" height="22" fill="#E85D1A" rx="4" /> {/* Vest */}
+//           <rect x="14" y="10" width="10" height="4" fill="#334155" className="worker-action" /> {/* Tool */}
+//         </g>
+
+        {/* ── UI OVERLAYS (Professional Floating Badges) ──────────── */}
+        {/* <g transform="translate(40, 60)" className="ui-float">
+          <rect width="160" height="50" rx="8" fill="#111B2B" fillOpacity="0.9" stroke="white" strokeOpacity="0.1" />
+          <text x="15" y="20" fontSize="8" fontWeight="900" fill="#E85D1A" fontFamily="sans-serif" letterSpacing="1">
+            PROJECT METRICS
+          </text>
+          <rect x="15" y="30" width="100" height="4" rx="2" fill="white" fillOpacity="0.05" />
+          <rect x="15" y="30" width="68" height="4" rx="2" fill="#E85D1A" className="progbar" />
+          <text x="125" y="35" fontSize="10" fontWeight="900" fill="white" fontFamily="sans-serif">68%</text>
+        </g> */}
+
+        {/* <g transform="translate(360, 20)">
+          <rect width="90" height="28" rx="14" fill="#E85D1A" />
+          <circle cx="18" cy="14" r="4" fill="white" className="pulse" filter="url(#glow)" />
+          <text x="30" y="18" fontSize="9" fontWeight="900" fill="white" fontFamily="sans-serif" letterSpacing="0.5">
+            LIVE SITE
+          </text>
+        </g> */}
+
+        {/* Sub-City Label */}
+        {/* <text x="40" y="360" fontSize="18" fontWeight="900" fill="white" fillOpacity="0.9" fontFamily="sans-serif">
+          LEMI KURA
+        </text>
+        <text x="40" y="375" fontSize="8" fontWeight="700" fill="#E85D1A" fontFamily="sans-serif" letterSpacing="2">
+          CONSTRUCTION PORTFOLIO
+        </text> */}
+  //     </svg>
+  //   </div>
+  // );
+// }
 // ─── Constants ────────────────────────────────────────────────────────────
 const ACTIVE_PROJECT_STATUSES = new Set(["Ongoing", "Design Phase", "BOQ Verification"]);
 
@@ -374,10 +384,10 @@ export function HomePageClient({
         <div className="absolute top-0 right-0 w-1/2 h-full  via-transparent to-transparent pointer-events-none" />
         <div className="relative max-w-7xl mx-auto px-8 py-24 w-full">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-16 items-center">
-            <div className="lg:col-span-7">
-              <h1 className={`serif text-white leading-[1.02] tracking-tight mb-4 ${isAm ? `${am} text-[52px] md:text-[64px]` : "text-[64px] md:text-[80px]"}`}>
+            <div className="lg:col-span-16">
+              <h1 className={`serif text-white leading-[1.02] tracking-tight mb-4 ${isAm ? `${am} text-[82px] md:text-[94px]` : "text-[94px] md:text-[110px]"}`}>
                 {t("hero.headline_1")}<br />
-                <em className="not-italic text-[#039737]">{t("hero.headline_accent")}</em>
+                <em className="not-italic text-[#E85D1A]">{t("hero.headline_accent")}<br/></em>
                 {" "}{t("hero.headline_2")}
               </h1>
               <p className={`text-white/45 leading-[1.85] mb-10 max-w-[540px] ${isAm ? `${am} text-[15px]` : "text-[17px]"}`}>
@@ -394,7 +404,7 @@ export function HomePageClient({
                 </Link>
               </div>
             </div>
-            <div className="lg:col-span-5">
+            {/* <div className="lg:col-span-5">
               <div className="card-dark overflow-hidden">
                 <ConstructionScene />
                 {(() => {
@@ -424,31 +434,49 @@ export function HomePageClient({
                   );
                 })()}
               </div>
-            </div>
+            </div>*/}
           </div>
-        </div>
+        </div> 
       </section>
 
       {/* ══ 2. KPI STRIP ══ */}
-      <section className="bg-[#E85D1A]">
-        <div className="max-w-7xl mx-auto px-8">
-          <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-white/20">
-            {[
-              { val: projs.length,              labelKey: "statistics.active_projects"        },
-              { val: fmt(totalBudget) + " ETB", labelKey: "statistics.portfolio_label"        },
-              { val: allContractors.length,     labelKey: "statistics.registered_contractors" },
-              { val: openTenders.length,        labelKey: "statistics.open_tenders"           },
-            ].map(s => (
-              <div key={s.labelKey} className="flex flex-col items-center justify-center py-10 px-6 text-center gap-1">
-                <p className="text-[38px] font-black text-white leading-none">{s.val}</p>
-                <p className={`text-white/75 font-black ${isAm ? `${am} text-[13px]` : "text-[10px] uppercase tracking-[0.2em]"}`}>
-                  {t(s.labelKey)}
-                </p>
-              </div>
-            ))}
-          </div>
+     <section className="bg-[#E85D1A]">
+  <div className="max-w-7xl mx-auto px-6 md:px-8">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+      {[
+        { val: projs.length, labelKey: "statistics.active_projects" },
+        { val: `${fmt(totalBudget)} ETB`, labelKey: "statistics.portfolio_label" },
+        { val: allContractors.length, labelKey: "statistics.registered_contractors" },
+        { val: openTenders.length, labelKey: "statistics.open_tenders" },
+      ].map((s, idx) => (
+        <div 
+          key={s.labelKey} 
+          className={`
+            flex flex-col items-center justify-center 
+            py-8 md:py-12 px-4 text-center gap-2
+            /* Vertical borders on mobile, horizontal on desktop */
+            border-b border-white/10 sm:border-b-0 
+            ${idx % 2 !== 0 ? 'sm:border-l' : 'sm:border-l-0'} 
+            lg:border-l lg:first:border-l-0 border-white/20
+          `}
+        >
+          {/* Number: Responsive size to prevent overflow on mobile */}
+          <p className="text-[32px] md:text-[38px] lg:text-[42px] font-black text-white leading-none tracking-tighter">
+            {s.val}
+          </p>
+          
+          {/* Label: Adjusted for Amharic height */}
+          <p className={`
+            text-white/80 font-black 
+            ${isAm ? `${am} text-[14px] leading-snug` : "text-[11px] uppercase tracking-[0.25em]"}
+          `}>
+            {t(s.labelKey)}
+          </p>
         </div>
-      </section>
+      ))}
+    </div>
+  </div>
+</section>
 
       {/* ══ 3. SECTOR HIGHLIGHTS ══ */}
       <section className="bg-[#0D1F38] py-24">
@@ -632,13 +660,13 @@ export function HomePageClient({
       {/* ══ 6. NEWS ══ */}
       <section className="bg-[#F4F5F7] py-24">
         <div className="max-w-7xl mx-auto px-8">
-          <div className="flex items-end justify-between mb-14 " >
+          {/* <div className="flex items-end justify-between mb-14 " >
             <SH eyebrow={t("news.eyebrow")} title={t("news.title")} accent="#E85D1A" dark={false} isAm={isAm} />
             <Link href={`/${locale}/contact`}
               className={`inline-flex items-center gap-2 font-black text-slate-400 hover:text-[#E85D1A] uppercase transition-colors ${isAm ? `${am} text-sm tracking-normal` : "text-[12px] tracking-[0.14em]"}`}>
               {t("news.view_all")} <ArrowRight size={13} strokeWidth={2.5} />
             </Link>
-          </div>
+          </div> */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {news.length === 0 ? (
               <div className="col-span-3 bg-white border border-slate-200 p-12 text-center">
